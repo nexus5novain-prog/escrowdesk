@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 
-export const Route = createFileRoute("/_app/admin")({ component: Admin });
+export const Route = createFileRoute("/admin")({ component: Admin });
 
 function Admin() {
   const fetchMe = useServerFn(getMe);

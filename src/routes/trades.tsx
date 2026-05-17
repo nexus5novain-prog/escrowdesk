@@ -5,7 +5,7 @@ import { getMyTrades } from "@/lib/escrow.functions";
 import { fmtCrypto, fmtFiat, shortId } from "@/lib/format";
 import { Badge } from "@/components/ui/badge";
 
-export const Route = createFileRoute("/_app/trades")({ component: Trades });
+export const Route = createFileRoute("/trades")({ component: Trades });
 
 function Trades() {
   const fn = useServerFn(getMyTrades);

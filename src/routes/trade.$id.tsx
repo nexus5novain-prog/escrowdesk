@@ -11,7 +11,7 @@ import { fmtCrypto, fmtFiat } from "@/lib/format";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
-export const Route = createFileRoute("/_app/trade/$id")({ component: TradePage });
+export const Route = createFileRoute("/trade/$id")({ component: TradePage });
 
 function TradePage() {
   const { id } = Route.useParams();
