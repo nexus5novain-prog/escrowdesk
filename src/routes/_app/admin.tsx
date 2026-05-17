@@ -17,7 +17,8 @@ function Admin() {
   const listD = useServerFn(adminListDisputes);
   const resolve = useServerFn(adminResolveDispute);
   const setFee = useServerFn(adminSetFee);
-  const { data, refetch } = useQuery({ queryKey: ["disputes"], queryFn: () => listD(), enabled: isStaff });
+  const { data: dataRaw, refetch } = useQuery({ queryKey: ["disputes"], queryFn: () => listD(), enabled: isStaff });
+  const data = dataRaw as { disputes: Array<{ id: string; trade_id: string; reason: string; status: string; created_at: string }> } | undefined;
   const [fee, setFee2] = useState("100");
 
   if (!isStaff) {
