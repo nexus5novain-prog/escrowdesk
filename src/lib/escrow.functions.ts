@@ -96,7 +96,7 @@ export const startTrade = createServerFn({ method: "POST" })
       _offer_id: data.offer_id,
       _buyer: context.userId,
       _fiat_amount: data.fiat_amount,
-      _payment_method_id: data.payment_method_id ?? null,
+      _payment_method_id: (data.payment_method_id ?? null) as string,
     });
     if (error) throw new Error(error.message);
     const tid = tradeId as unknown as string;
@@ -284,7 +284,7 @@ export const adminSetFee = createServerFn({ method: "POST" })
     const { isAdmin } = await assertAdmin(context.userId);
     if (!isAdmin) throw new Error("Admin only");
     const { error } = await supabaseAdmin.from("platform_settings").upsert({
-      key: "fee_bps", value: data.fee_bps as unknown as object, updated_at: new Date().toISOString(),
+      key: "fee_bps", value: data.fee_bps, updated_at: new Date().toISOString(),
     });
     if (error) throw new Error(error.message);
     return { ok: true };
