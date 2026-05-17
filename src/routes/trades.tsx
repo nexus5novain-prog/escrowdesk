@@ -1,11 +1,12 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { AuthGate } from "@/components/AuthGate";
 import { useServerFn } from "@tanstack/react-start";
 import { useQuery } from "@tanstack/react-query";
 import { getMyTrades } from "@/lib/escrow.functions";
 import { fmtCrypto, fmtFiat, shortId } from "@/lib/format";
 import { Badge } from "@/components/ui/badge";
 
-export const Route = createFileRoute("/_app/trades")({ component: Trades });
+export const Route = createFileRoute("/trades")({ component: () => (<AuthGate><Trades /></AuthGate>) });
 
 function Trades() {
   const fn = useServerFn(getMyTrades);

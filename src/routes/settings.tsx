@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { AuthGate } from "@/components/AuthGate";
 import { useServerFn } from "@tanstack/react-start";
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
@@ -9,7 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 
-export const Route = createFileRoute("/_app/settings")({ component: Settings });
+export const Route = createFileRoute("/settings")({ component: () => (<AuthGate><Settings /></AuthGate>) });
 
 function Settings() {
   const fetchMe = useServerFn(getMe);
