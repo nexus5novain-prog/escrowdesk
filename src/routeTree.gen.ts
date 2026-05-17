@@ -9,26 +9,46 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as WalletRouteImport } from './routes/wallet'
+import { Route as TradesRouteImport } from './routes/trades'
+import { Route as SettingsRouteImport } from './routes/settings'
+import { Route as PostOfferRouteImport } from './routes/post-offer'
 import { Route as AuthRouteImport } from './routes/auth'
-import { Route as AppRouteImport } from './routes/_app'
+import { Route as AdminRouteImport } from './routes/admin'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as AppWalletRouteImport } from './routes/_app/wallet'
-import { Route as AppTradesRouteImport } from './routes/_app/trades'
-import { Route as AppSettingsRouteImport } from './routes/_app/settings'
-import { Route as AppPostOfferRouteImport } from './routes/_app/post-offer'
-import { Route as AppAdminRouteImport } from './routes/_app/admin'
-import { Route as AppTradeIdRouteImport } from './routes/_app/trade.$id'
-import { Route as AppOfferIdRouteImport } from './routes/_app/offer.$id'
+import { Route as TradeIdRouteImport } from './routes/trade.$id'
+import { Route as OfferIdRouteImport } from './routes/offer.$id'
 import { Route as ApiPublicTelegramWebhookRouteImport } from './routes/api/public/telegram/webhook'
 import { Route as ApiPublicTelegramSetupRouteImport } from './routes/api/public/telegram/setup'
 
+const WalletRoute = WalletRouteImport.update({
+  id: '/wallet',
+  path: '/wallet',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const TradesRoute = TradesRouteImport.update({
+  id: '/trades',
+  path: '/trades',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SettingsRoute = SettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PostOfferRoute = PostOfferRouteImport.update({
+  id: '/post-offer',
+  path: '/post-offer',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AuthRoute = AuthRouteImport.update({
   id: '/auth',
   path: '/auth',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AppRoute = AppRouteImport.update({
-  id: '/_app',
+const AdminRoute = AdminRouteImport.update({
+  id: '/admin',
+  path: '/admin',
   getParentRoute: () => rootRouteImport,
 } as any)
 const IndexRoute = IndexRouteImport.update({
@@ -36,40 +56,15 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AppWalletRoute = AppWalletRouteImport.update({
-  id: '/wallet',
-  path: '/wallet',
-  getParentRoute: () => AppRoute,
-} as any)
-const AppTradesRoute = AppTradesRouteImport.update({
-  id: '/trades',
-  path: '/trades',
-  getParentRoute: () => AppRoute,
-} as any)
-const AppSettingsRoute = AppSettingsRouteImport.update({
-  id: '/settings',
-  path: '/settings',
-  getParentRoute: () => AppRoute,
-} as any)
-const AppPostOfferRoute = AppPostOfferRouteImport.update({
-  id: '/post-offer',
-  path: '/post-offer',
-  getParentRoute: () => AppRoute,
-} as any)
-const AppAdminRoute = AppAdminRouteImport.update({
-  id: '/admin',
-  path: '/admin',
-  getParentRoute: () => AppRoute,
-} as any)
-const AppTradeIdRoute = AppTradeIdRouteImport.update({
+const TradeIdRoute = TradeIdRouteImport.update({
   id: '/trade/$id',
   path: '/trade/$id',
-  getParentRoute: () => AppRoute,
+  getParentRoute: () => rootRouteImport,
 } as any)
-const AppOfferIdRoute = AppOfferIdRouteImport.update({
+const OfferIdRoute = OfferIdRouteImport.update({
   id: '/offer/$id',
   path: '/offer/$id',
-  getParentRoute: () => AppRoute,
+  getParentRoute: () => rootRouteImport,
 } as any)
 const ApiPublicTelegramWebhookRoute =
   ApiPublicTelegramWebhookRouteImport.update({
@@ -85,42 +80,41 @@ const ApiPublicTelegramSetupRoute = ApiPublicTelegramSetupRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/admin': typeof AdminRoute
   '/auth': typeof AuthRoute
-  '/admin': typeof AppAdminRoute
-  '/post-offer': typeof AppPostOfferRoute
-  '/settings': typeof AppSettingsRoute
-  '/trades': typeof AppTradesRoute
-  '/wallet': typeof AppWalletRoute
-  '/offer/$id': typeof AppOfferIdRoute
-  '/trade/$id': typeof AppTradeIdRoute
+  '/post-offer': typeof PostOfferRoute
+  '/settings': typeof SettingsRoute
+  '/trades': typeof TradesRoute
+  '/wallet': typeof WalletRoute
+  '/offer/$id': typeof OfferIdRoute
+  '/trade/$id': typeof TradeIdRoute
   '/api/public/telegram/setup': typeof ApiPublicTelegramSetupRoute
   '/api/public/telegram/webhook': typeof ApiPublicTelegramWebhookRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/admin': typeof AdminRoute
   '/auth': typeof AuthRoute
-  '/admin': typeof AppAdminRoute
-  '/post-offer': typeof AppPostOfferRoute
-  '/settings': typeof AppSettingsRoute
-  '/trades': typeof AppTradesRoute
-  '/wallet': typeof AppWalletRoute
-  '/offer/$id': typeof AppOfferIdRoute
-  '/trade/$id': typeof AppTradeIdRoute
+  '/post-offer': typeof PostOfferRoute
+  '/settings': typeof SettingsRoute
+  '/trades': typeof TradesRoute
+  '/wallet': typeof WalletRoute
+  '/offer/$id': typeof OfferIdRoute
+  '/trade/$id': typeof TradeIdRoute
   '/api/public/telegram/setup': typeof ApiPublicTelegramSetupRoute
   '/api/public/telegram/webhook': typeof ApiPublicTelegramWebhookRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
-  '/_app': typeof AppRouteWithChildren
+  '/admin': typeof AdminRoute
   '/auth': typeof AuthRoute
-  '/_app/admin': typeof AppAdminRoute
-  '/_app/post-offer': typeof AppPostOfferRoute
-  '/_app/settings': typeof AppSettingsRoute
-  '/_app/trades': typeof AppTradesRoute
-  '/_app/wallet': typeof AppWalletRoute
-  '/_app/offer/$id': typeof AppOfferIdRoute
-  '/_app/trade/$id': typeof AppTradeIdRoute
+  '/post-offer': typeof PostOfferRoute
+  '/settings': typeof SettingsRoute
+  '/trades': typeof TradesRoute
+  '/wallet': typeof WalletRoute
+  '/offer/$id': typeof OfferIdRoute
+  '/trade/$id': typeof TradeIdRoute
   '/api/public/telegram/setup': typeof ApiPublicTelegramSetupRoute
   '/api/public/telegram/webhook': typeof ApiPublicTelegramWebhookRoute
 }
@@ -128,8 +122,8 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
-    | '/auth'
     | '/admin'
+    | '/auth'
     | '/post-offer'
     | '/settings'
     | '/trades'
@@ -141,8 +135,8 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
-    | '/auth'
     | '/admin'
+    | '/auth'
     | '/post-offer'
     | '/settings'
     | '/trades'
@@ -154,29 +148,62 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
-    | '/_app'
+    | '/admin'
     | '/auth'
-    | '/_app/admin'
-    | '/_app/post-offer'
-    | '/_app/settings'
-    | '/_app/trades'
-    | '/_app/wallet'
-    | '/_app/offer/$id'
-    | '/_app/trade/$id'
+    | '/post-offer'
+    | '/settings'
+    | '/trades'
+    | '/wallet'
+    | '/offer/$id'
+    | '/trade/$id'
     | '/api/public/telegram/setup'
     | '/api/public/telegram/webhook'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
-  AppRoute: typeof AppRouteWithChildren
+  AdminRoute: typeof AdminRoute
   AuthRoute: typeof AuthRoute
+  PostOfferRoute: typeof PostOfferRoute
+  SettingsRoute: typeof SettingsRoute
+  TradesRoute: typeof TradesRoute
+  WalletRoute: typeof WalletRoute
+  OfferIdRoute: typeof OfferIdRoute
+  TradeIdRoute: typeof TradeIdRoute
   ApiPublicTelegramSetupRoute: typeof ApiPublicTelegramSetupRoute
   ApiPublicTelegramWebhookRoute: typeof ApiPublicTelegramWebhookRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/wallet': {
+      id: '/wallet'
+      path: '/wallet'
+      fullPath: '/wallet'
+      preLoaderRoute: typeof WalletRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/trades': {
+      id: '/trades'
+      path: '/trades'
+      fullPath: '/trades'
+      preLoaderRoute: typeof TradesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/settings': {
+      id: '/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof SettingsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/post-offer': {
+      id: '/post-offer'
+      path: '/post-offer'
+      fullPath: '/post-offer'
+      preLoaderRoute: typeof PostOfferRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/auth': {
       id: '/auth'
       path: '/auth'
@@ -184,11 +211,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/_app': {
-      id: '/_app'
-      path: ''
-      fullPath: '/'
-      preLoaderRoute: typeof AppRouteImport
+    '/admin': {
+      id: '/admin'
+      path: '/admin'
+      fullPath: '/admin'
+      preLoaderRoute: typeof AdminRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/': {
@@ -198,54 +225,19 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/_app/wallet': {
-      id: '/_app/wallet'
-      path: '/wallet'
-      fullPath: '/wallet'
-      preLoaderRoute: typeof AppWalletRouteImport
-      parentRoute: typeof AppRoute
-    }
-    '/_app/trades': {
-      id: '/_app/trades'
-      path: '/trades'
-      fullPath: '/trades'
-      preLoaderRoute: typeof AppTradesRouteImport
-      parentRoute: typeof AppRoute
-    }
-    '/_app/settings': {
-      id: '/_app/settings'
-      path: '/settings'
-      fullPath: '/settings'
-      preLoaderRoute: typeof AppSettingsRouteImport
-      parentRoute: typeof AppRoute
-    }
-    '/_app/post-offer': {
-      id: '/_app/post-offer'
-      path: '/post-offer'
-      fullPath: '/post-offer'
-      preLoaderRoute: typeof AppPostOfferRouteImport
-      parentRoute: typeof AppRoute
-    }
-    '/_app/admin': {
-      id: '/_app/admin'
-      path: '/admin'
-      fullPath: '/admin'
-      preLoaderRoute: typeof AppAdminRouteImport
-      parentRoute: typeof AppRoute
-    }
-    '/_app/trade/$id': {
-      id: '/_app/trade/$id'
+    '/trade/$id': {
+      id: '/trade/$id'
       path: '/trade/$id'
       fullPath: '/trade/$id'
-      preLoaderRoute: typeof AppTradeIdRouteImport
-      parentRoute: typeof AppRoute
+      preLoaderRoute: typeof TradeIdRouteImport
+      parentRoute: typeof rootRouteImport
     }
-    '/_app/offer/$id': {
-      id: '/_app/offer/$id'
+    '/offer/$id': {
+      id: '/offer/$id'
       path: '/offer/$id'
       fullPath: '/offer/$id'
-      preLoaderRoute: typeof AppOfferIdRouteImport
-      parentRoute: typeof AppRoute
+      preLoaderRoute: typeof OfferIdRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/api/public/telegram/webhook': {
       id: '/api/public/telegram/webhook'
@@ -264,35 +256,29 @@ declare module '@tanstack/react-router' {
   }
 }
 
-interface AppRouteChildren {
-  AppAdminRoute: typeof AppAdminRoute
-  AppPostOfferRoute: typeof AppPostOfferRoute
-  AppSettingsRoute: typeof AppSettingsRoute
-  AppTradesRoute: typeof AppTradesRoute
-  AppWalletRoute: typeof AppWalletRoute
-  AppOfferIdRoute: typeof AppOfferIdRoute
-  AppTradeIdRoute: typeof AppTradeIdRoute
-}
-
-const AppRouteChildren: AppRouteChildren = {
-  AppAdminRoute: AppAdminRoute,
-  AppPostOfferRoute: AppPostOfferRoute,
-  AppSettingsRoute: AppSettingsRoute,
-  AppTradesRoute: AppTradesRoute,
-  AppWalletRoute: AppWalletRoute,
-  AppOfferIdRoute: AppOfferIdRoute,
-  AppTradeIdRoute: AppTradeIdRoute,
-}
-
-const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
-
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
-  AppRoute: AppRouteWithChildren,
+  AdminRoute: AdminRoute,
   AuthRoute: AuthRoute,
+  PostOfferRoute: PostOfferRoute,
+  SettingsRoute: SettingsRoute,
+  TradesRoute: TradesRoute,
+  WalletRoute: WalletRoute,
+  OfferIdRoute: OfferIdRoute,
+  TradeIdRoute: TradeIdRoute,
   ApiPublicTelegramSetupRoute: ApiPublicTelegramSetupRoute,
   ApiPublicTelegramWebhookRoute: ApiPublicTelegramWebhookRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
