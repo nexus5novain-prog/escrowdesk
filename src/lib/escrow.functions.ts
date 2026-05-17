@@ -371,3 +371,138 @@ export const getTrade = createServerFn({ method: "GET" })
     ]);
     return { trade: t, messages: msgs ?? [], buyer, seller, payment_method: pm };
   });
+
+// ---------- Admin: lightweight role check (no throw) ----------
+export const getMyRoles = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { data } = await supabaseAdmin.from("user_roles").select("role").eq("user_id", context.userId);
+    return { roles: (data ?? []).map((r) => r.role as string) };
+  });
+
+// ---------- Admin: tables ----------
+export const adminListOffers = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator(z.object({ status: z.enum(["active","paused","closed"]).optional() }).optional().transform((v) => v ?? {}))
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context.userId);
+    let q = supabaseAdmin.from("offers")
+      .select("id, side, asset, fiat_currency, price, min_amount, max_amount, available_crypto, status, maker_id, created_at")
+      .order("created_at", { ascending: false }).limit(200);
+    if (data.status) q = q.eq("status", data.status);
+    const { data: rows, error } = await q;
+    if (error) throw new Error(error.message);
+    const ids = Array.from(new Set((rows ?? []).map((r) => r.maker_id)));
+    const profs = ids.length
+      ? (await supabaseAdmin.from("profiles").select("user_id, display_name").in("user_id", ids)).data ?? []
+      : [];
+    const pm = new Map(profs.map((p) => [p.user_id, p.display_name]));
+    return { offers: (rows ?? []).map((r) => ({ ...r, maker_name: pm.get(r.maker_id) ?? null })) };
+  });
+
+export const adminUpdateOfferStatus = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator(z.object({ id: z.string().uuid(), status: z.enum(["active","paused","closed"]) }))
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context.userId);
+    const { error } = await supabaseAdmin.from("offers").update({ status: data.status }).eq("id", data.id);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+export const adminListTrades = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator(z.object({
+    status: z.enum(["pending_payment","paid","released","cancelled","disputed"]).optional(),
+  }).optional().transform((v) => v ?? {}))
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context.userId);
+    let q = supabaseAdmin.from("trades")
+      .select("id, status, asset, crypto_amount, fiat_amount, fiat_currency, price, created_at, buyer_id, seller_id")
+      .order("created_at", { ascending: false }).limit(200);
+    if (data.status) q = q.eq("status", data.status);
+    const { data: rows, error } = await q;
+    if (error) throw new Error(error.message);
+    const ids = Array.from(new Set((rows ?? []).flatMap((r) => [r.buyer_id, r.seller_id])));
+    const profs = ids.length
+      ? (await supabaseAdmin.from("profiles").select("user_id, display_name").in("user_id", ids)).data ?? []
+      : [];
+    const nm = new Map(profs.map((p) => [p.user_id, p.display_name]));
+    return { trades: (rows ?? []).map((r) => ({
+      ...r, buyer_name: nm.get(r.buyer_id) ?? null, seller_name: nm.get(r.seller_id) ?? null,
+    })) };
+  });
+
+export const adminForceCancelTrade = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator(z.object({ trade_id: z.string().uuid() }))
+  .handler(async ({ data, context }) => {
+    const { isAdmin } = await assertAdmin(context.userId);
+    if (!isAdmin) throw new Error("Admin only");
+    const { error } = await supabaseAdmin.rpc("cancel_trade", { _trade_id: data.trade_id, _caller: context.userId });
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+export const adminForceReleaseTrade = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator(z.object({ trade_id: z.string().uuid() }))
+  .handler(async ({ data, context }) => {
+    const { isAdmin } = await assertAdmin(context.userId);
+    if (!isAdmin) throw new Error("Admin only");
+    const { error } = await supabaseAdmin.rpc("release_trade", { _trade_id: data.trade_id, _caller: context.userId });
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+// ---------- Admin: Telegram wizard ----------
+export const tgGetStatus = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    await assertAdmin(context.userId);
+    const { tgCall } = await import("./telegram.server");
+    const hasKey = !!process.env.TELEGRAM_API_KEY;
+    if (!hasKey) return { hasKey: false, me: null, webhook: null };
+    const [me, wh] = await Promise.all([tgCall("getMe", {}), tgCall("getWebhookInfo", {})]);
+    return { hasKey: true, me: me?.result ?? null, webhook: wh?.result ?? null };
+  });
+
+export const tgSetWebhook = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator(z.object({ url: z.string().url() }))
+  .handler(async ({ data, context }) => {
+    const { isAdmin } = await assertAdmin(context.userId);
+    if (!isAdmin) throw new Error("Admin only");
+    if (!data.url.startsWith("https://")) throw new Error("HTTPS required");
+    const { tgCall } = await import("./telegram.server");
+    const { createHash } = await import("crypto");
+    const secret = createHash("sha256").update(`telegram-webhook:${process.env.TELEGRAM_API_KEY ?? ""}`).digest("base64url");
+    const r = await tgCall("setWebhook", {
+      url: data.url, secret_token: secret, allowed_updates: ["message","edited_message"],
+    });
+    if (!r?.ok) throw new Error(r?.description || "setWebhook failed");
+    return { ok: true, result: r.result };
+  });
+
+export const tgDeleteWebhook = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { isAdmin } = await assertAdmin(context.userId);
+    if (!isAdmin) throw new Error("Admin only");
+    const { tgCall } = await import("./telegram.server");
+    const r = await tgCall("deleteWebhook", { drop_pending_updates: false });
+    if (!r?.ok) throw new Error(r?.description || "deleteWebhook failed");
+    return { ok: true };
+  });
+
+export const tgSendTest = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator(z.object({ chat_id: z.union([z.number(), z.string()]) }))
+  .handler(async ({ data, context }) => {
+    const { isAdmin } = await assertAdmin(context.userId);
+    if (!isAdmin) throw new Error("Admin only");
+    const { tgSendMessage } = await import("./telegram.server");
+    const r = await tgSendMessage(data.chat_id, "✅ EscrowDesk test message — bot is wired up.");
+    if (!r?.ok) throw new Error(r?.description || "send failed");
+    return { ok: true };
+  });
