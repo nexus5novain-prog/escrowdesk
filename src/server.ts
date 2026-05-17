@@ -13,7 +13,10 @@ async function getServerEntry(): Promise<ServerEntry> {
   if (!serverEntryPromise) {
     serverEntryPromise = import("@tanstack/react-start/server-entry").then(
       (m) => ((m as { default?: ServerEntry }).default ?? (m as unknown as ServerEntry)),
-    );
+    ).catch((error) => {
+      serverEntryPromise = undefined;
+      throw error;
+    });
   }
   return serverEntryPromise;
 }
