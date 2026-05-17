@@ -279,7 +279,7 @@ function TelegramPanel() {
 
       <div className="surface p-5">
         <h2 className="font-semibold">Step 3 · Send test message</h2>
-        <p className="mt-1 text-sm text-muted-foreground">Enter your Telegram chat ID (get it by messaging your bot, then visiting getUpdates).</p>
+        <p className="mt-1 text-sm text-muted-foreground">Open Telegram, message your bot (tap <strong>Start</strong>) at least once, then paste your numeric chat ID here. If you don't know it, message <code className="font-mono">@userinfobot</code> to get your ID — or after messaging your bot, click <em>Webhook</em> → check pending updates, or use <code className="font-mono">/link</code> from your bot. Group/channel IDs start with <code className="font-mono">-100</code>.</p>
         <div className="mt-3 flex gap-2">
           <Input className="w-48 font-mono" placeholder="123456789" value={chatId} onChange={(e) => setChatId(e.target.value)} />
           <Button size="sm" onClick={async () => { try { await sendTest({ data: { chat_id: /^\d+$/.test(chatId) ? Number(chatId) : chatId } }); toast.success("Sent"); } catch (e) { toast.error((e as Error).message); } }} disabled={!chatId}>Send test</Button>

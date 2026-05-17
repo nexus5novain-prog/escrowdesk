@@ -230,7 +230,7 @@ export const generateTelegramLink = createServerFn({ method: "POST" })
     try {
       const { tgCall } = await import("./telegram.server");
       const me = await tgCall("getMe", {});
-      botUsername = me?.result?.username ?? null;
+      botUsername = (me?.result as { username?: string } | undefined)?.username ?? null;
     } catch { /* ignore */ }
 
     return {
@@ -481,7 +481,7 @@ export const tgSetWebhook = createServerFn({ method: "POST" })
       url: data.url, secret_token: secret, allowed_updates: ["message","edited_message"],
     });
     if (!r?.ok) throw new Error(r?.description || "setWebhook failed");
-    return { ok: true, result: r.result };
+    return { ok: true };
   });
 
 export const tgDeleteWebhook = createServerFn({ method: "POST" })
