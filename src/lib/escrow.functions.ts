@@ -230,7 +230,7 @@ export const generateTelegramLink = createServerFn({ method: "POST" })
     try {
       const { tgCall } = await import("./telegram.server");
       const me = await tgCall("getMe", {});
-      botUsername = me?.result?.username ?? null;
+      botUsername = (me?.result as { username?: string } | undefined)?.username ?? null;
     } catch { /* ignore */ }
 
     return {
