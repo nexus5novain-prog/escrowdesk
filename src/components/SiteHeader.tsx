@@ -2,9 +2,20 @@ import { Link } from "@tanstack/react-router";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { ShieldCheck } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { useServerFn } from "@tanstack/react-start";
+import { getMyRoles } from "@/lib/escrow.functions";
 
 export function SiteHeader() {
   const { user, signOut } = useAuth();
+  const fetchRoles = useServerFn(getMyRoles);
+  const { data: rolesData } = useQuery({
+    queryKey: ["my-roles", user?.id],
+    queryFn: () => fetchRoles(),
+    enabled: !!user,
+    staleTime: 60_000,
+  });
+  const isStaff = (rolesData?.roles ?? []).some((r) => r === "admin" || r === "moderator");
   return (
     <header className="sticky top-0 z-30 border-b border-border/60 bg-background/70 backdrop-blur-xl">
       <div className="mx-auto flex h-14 max-w-7xl items-center justify-between px-4">
