@@ -428,6 +428,28 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      cancel_trade: {
+        Args: { _caller: string; _trade_id: string }
+        Returns: undefined
+      }
+      credit_wallet: {
+        Args: {
+          _amount: number
+          _asset: Database["public"]["Enums"]["asset_type"]
+          _note: string
+          _user: string
+        }
+        Returns: undefined
+      }
+      debit_wallet: {
+        Args: {
+          _amount: number
+          _asset: Database["public"]["Enums"]["asset_type"]
+          _note: string
+          _user: string
+        }
+        Returns: undefined
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -436,6 +458,36 @@ export type Database = {
         Returns: boolean
       }
       is_staff: { Args: { _user_id: string }; Returns: boolean }
+      mark_trade_paid: {
+        Args: { _caller: string; _trade_id: string }
+        Returns: undefined
+      }
+      open_dispute: {
+        Args: { _caller: string; _reason: string; _trade_id: string }
+        Returns: string
+      }
+      release_trade: {
+        Args: { _caller: string; _trade_id: string }
+        Returns: undefined
+      }
+      resolve_dispute: {
+        Args: {
+          _award_to: string
+          _caller: string
+          _note: string
+          _trade_id: string
+        }
+        Returns: undefined
+      }
+      start_trade: {
+        Args: {
+          _buyer: string
+          _fiat_amount: number
+          _offer_id: string
+          _payment_method_id: string
+        }
+        Returns: string
+      }
     }
     Enums: {
       app_role: "admin" | "moderator" | "user"
