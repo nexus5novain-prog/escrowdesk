@@ -28,7 +28,7 @@ export const listOffers = createServerFn({ method: "GET" })
   .handler(async ({ data }) => {
     let q = supabaseAdmin
       .from("offers")
-      .select("id, side, asset, fiat_currency, price, min_amount, max_amount, available_crypto, payment_method_types, terms, maker_id, profiles:profiles!offers_maker_id_fkey(display_name, trades_completed)" as never)
+      .select("id, side, asset, fiat_currency, price, min_amount, max_amount, available_crypto, payment_method_types, terms, maker_id")
       .eq("status", "active")
       .order("price", { ascending: true })
       .limit(100);
@@ -37,7 +37,12 @@ export const listOffers = createServerFn({ method: "GET" })
     if (data.fiat) q = q.eq("fiat_currency", data.fiat);
     const { data: rows, error } = await q;
     if (error) throw new Error(error.message);
-    return { offers: rows ?? [] };
+    const ids = Array.from(new Set((rows ?? []).map((r) => r.maker_id)));
+    const profs = ids.length
+      ? (await supabaseAdmin.from("profiles").select("user_id, display_name, trades_completed").in("user_id", ids)).data ?? []
+      : [];
+    const pm = new Map(profs.map((p) => [p.user_id, p]));
+    return { offers: (rows ?? []).map((r) => ({ ...r, profile: pm.get(r.maker_id) ?? null })) };
   });
 
 export const createOffer = createServerFn({ method: "POST" })
