@@ -1,4 +1,5 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { AuthGate } from "@/components/AuthGate";
 import { useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { createOffer } from "@/lib/escrow.functions";
@@ -8,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 
-export const Route = createFileRoute("/post-offer")({ component: Page });
+export const Route = createFileRoute("/post-offer")({ component: () => (<AuthGate><Page /></AuthGate>) });
 
 function Page() {
   const fn = useServerFn(createOffer);

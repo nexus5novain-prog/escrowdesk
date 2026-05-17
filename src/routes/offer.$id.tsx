@@ -1,4 +1,5 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { AuthGate } from "@/components/AuthGate";
 import { useServerFn } from "@tanstack/react-start";
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
@@ -9,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 
-export const Route = createFileRoute("/offer/$id")({ component: OfferDetail });
+export const Route = createFileRoute("/offer/$id")({ component: () => (<AuthGate><OfferDetail /></AuthGate>) });
 
 function OfferDetail() {
   const { id } = Route.useParams();
