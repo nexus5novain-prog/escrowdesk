@@ -17,12 +17,11 @@ export async function tgCall(method: string, payload: Record<string, unknown>) {
     },
     body: JSON.stringify(payload),
   });
-  const data = await res.json().catch(() => ({}));
+  const data = await res.json().catch(() => ({} as Record<string, unknown>));
   if (!res.ok) {
     console.error(`[telegram] ${method} ${res.status}`, data);
-    return null;
   }
-  return data;
+  return data as { ok?: boolean; result?: unknown; description?: string } | null;
 }
 
 export async function tgSendMessage(chat_id: number | string, text: string, extra: Record<string, unknown> = {}) {
