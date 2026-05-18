@@ -6,6 +6,7 @@ import { useEffect, useRef, useState } from "react";
 import {
   getEscrowGroup, sendGroupMessage, inviteModerator,
   submitGroupTxHash, releaseEscrowGroup, cancelEscrowGroup,
+  acceptEscrowInvite, declineEscrowInvite, verifyGroupDeposit,
 } from "@/lib/escrow-groups.functions";
 import { useAuth } from "@/hooks/use-auth";
 import { supabase } from "@/integrations/supabase/client";
