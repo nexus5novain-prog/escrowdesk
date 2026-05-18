@@ -336,11 +336,126 @@ export const adminSetFee = createServerFn({ method: "POST" })
 
 export const adminBanUser = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator(z.object({ user_id: z.string().uuid(), banned: z.boolean() }))
+  .inputValidator(z.object({ user_id: z.string().uuid(), reason: z.string().min(3).max(500) }))
+  .handler(async ({ data, context }) => {
+    const { error } = await supabaseAdmin.rpc("ban_user", {
+      _target: data.user_id, _caller: context.userId, _reason: data.reason,
+    });
+    if (error) throw new Error(error.message);
+    await notifyUser(data.user_id, `🚫 Your account has been banned. Reason: ${data.reason}`);
+    return { ok: true };
+  });
+
+export const adminUnbanUser = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator(z.object({ user_id: z.string().uuid() }))
+  .handler(async ({ data, context }) => {
+    const { error } = await supabaseAdmin.rpc("unban_user", { _target: data.user_id, _caller: context.userId });
+    if (error) throw new Error(error.message);
+    await notifyUser(data.user_id, `✅ Your account has been unbanned. Welcome back.`);
+    return { ok: true };
+  });
+
+export const adminWarnUser = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator(z.object({
+    user_id: z.string().uuid(),
+    reason: z.string().min(3).max(500),
+    severity: z.enum(["minor","major","final"]).default("minor"),
+  }))
+  .handler(async ({ data, context }) => {
+    const { error } = await supabaseAdmin.rpc("warn_user", {
+      _target: data.user_id, _caller: context.userId, _reason: data.reason, _severity: data.severity,
+    });
+    if (error) throw new Error(error.message);
+    await notifyUser(data.user_id, `⚠️ Warning (${data.severity}) issued by staff: ${data.reason}`);
+    return { ok: true };
+  });
+
+export const adminListWarnings = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator(z.object({ user_id: z.string().uuid().optional() }).optional().transform((v) => v ?? {}))
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context.userId);
+    let q = supabaseAdmin.from("user_warnings")
+      .select("id, user_id, issued_by, reason, severity, created_at")
+      .order("created_at", { ascending: false }).limit(200);
+    if (data.user_id) q = q.eq("user_id", data.user_id);
+    const { data: rows, error } = await q;
+    if (error) throw new Error(error.message);
+    const ids = Array.from(new Set((rows ?? []).flatMap((r) => [r.user_id, r.issued_by])));
+    const profs = ids.length
+      ? (await supabaseAdmin.from("profiles").select("user_id, display_name").in("user_id", ids)).data ?? []
+      : [];
+    const nm = new Map(profs.map((p) => [p.user_id, p.display_name]));
+    return { warnings: (rows ?? []).map((w) => ({
+      ...w, user_name: nm.get(w.user_id) ?? null, issued_by_name: nm.get(w.issued_by) ?? null,
+    })) };
+  });
+
+export const adminAssignRole = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator(z.object({
+    user_id: z.string().uuid(),
+    role: z.enum(["admin","moderator","judge","finance","support","user"]),
+  }))
+  .handler(async ({ data, context }) => {
+    const { error } = await supabaseAdmin.rpc("assign_role", {
+      _target: data.user_id, _caller: context.userId, _role: data.role,
+    });
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+export const adminRevokeRole = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator(z.object({
+    user_id: z.string().uuid(),
+    role: z.enum(["admin","moderator","judge","finance","support","user"]),
+  }))
+  .handler(async ({ data, context }) => {
+    const { error } = await supabaseAdmin.rpc("revoke_role", {
+      _target: data.user_id, _caller: context.userId, _role: data.role,
+    });
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+export const adminListUsers = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator(z.object({ search: z.string().max(100).optional() }).optional().transform((v) => v ?? {}))
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context.userId);
+    let q = supabaseAdmin.from("profiles")
+      .select("user_id, display_name, telegram_username, telegram_user_id, is_banned, ban_reason, banned_at, trades_completed, created_at")
+      .order("created_at", { ascending: false }).limit(200);
+    if (data.search && data.search.trim()) {
+      q = q.ilike("display_name", `%${data.search.trim()}%`);
+    }
+    const { data: rows, error } = await q;
+    if (error) throw new Error(error.message);
+    const ids = (rows ?? []).map((r) => r.user_id);
+    const { data: roleRows } = ids.length
+      ? await supabaseAdmin.from("user_roles").select("user_id, role").in("user_id", ids)
+      : { data: [] as { user_id: string; role: string }[] };
+    const rmap = new Map<string, string[]>();
+    (roleRows ?? []).forEach((r) => {
+      const arr = rmap.get(r.user_id) ?? [];
+      arr.push(r.role as string);
+      rmap.set(r.user_id, arr);
+    });
+    return { users: (rows ?? []).map((u) => ({ ...u, roles: rmap.get(u.user_id) ?? [] })) };
+  });
+
+export const adminUnlinkTelegram = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator(z.object({ user_id: z.string().uuid() }))
   .handler(async ({ data, context }) => {
     const { isAdmin } = await assertAdmin(context.userId);
     if (!isAdmin) throw new Error("Admin only");
-    const { error } = await supabaseAdmin.from("profiles").update({ is_banned: data.banned }).eq("user_id", data.user_id);
+    const { error } = await supabaseAdmin.from("profiles")
+      .update({ telegram_user_id: null, telegram_username: null })
+      .eq("user_id", data.user_id);
     if (error) throw new Error(error.message);
     return { ok: true };
   });
