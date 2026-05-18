@@ -1,8 +1,10 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { AuthGate } from "@/components/AuthGate";
 import { useServerFn } from "@tanstack/react-start";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { z } from "zod";
 import { createEscrowGroup } from "@/lib/escrow-groups.functions";
+import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -12,33 +14,49 @@ import { toast } from "sonner";
 import { Users2, Send } from "lucide-react";
 
 export const Route = createFileRoute("/escrow/new")({
+  validateSearch: z.object({ listing: z.string().uuid().optional() }),
   component: () => (<AuthGate><NewEscrow /></AuthGate>),
 });
 
 function NewEscrow() {
   const nav = useNavigate();
+  const { listing } = Route.useSearch();
   const create = useServerFn(createEscrowGroup);
   const [mode, setMode] = useState<"site"|"telegram">("site");
-  const [asset, setAsset] = useState<"BTC"|"USDT"|"USDC"|"ETH">("BTC");
+  const [asset, setAsset] = useState<"BTC"|"USDT"|"USDC"|"ETH">("USDT");
   const [amount, setAmount] = useState("");
   const [fiat, setFiat] = useState("");
   const [username, setUsername] = useState("");
   const [tg, setTg] = useState("");
   const [busy, setBusy] = useState(false);
+  const [listingMeta, setListingMeta] = useState<{ name: string; seller: string | null } | null>(null);
+
+  useEffect(() => {
+    if (!listing) return;
+    (async () => {
+      const { data: l } = await supabase.from("listings").select("name, amount, currency, user_id").eq("id", listing).maybeSingle();
+      if (!l) return;
+      const { data: p } = await supabase.from("profiles").select("display_name").eq("user_id", l.user_id).maybeSingle();
+      setListingMeta({ name: l.name, seller: p?.display_name ?? null });
+      if (l.amount != null) setFiat(String(l.amount));
+      if (p?.display_name) setUsername(p.display_name);
+    })();
+  }, [listing]);
 
   const submit = async () => {
     const amt = Number(amount);
-    if (!amt || amt <= 0) return toast.error("Enter a valid amount");
-    if (mode === "site" && !username.trim()) return toast.error("Enter the seller's site username");
-    if (mode === "telegram" && !tg.trim()) return toast.error("Enter the seller's Telegram username");
+    if (!amt || amt <= 0) return toast.error("Enter a valid crypto amount");
+    if (!listing && mode === "site" && !username.trim()) return toast.error("Enter the seller's site username");
+    if (!listing && mode === "telegram" && !tg.trim()) return toast.error("Enter the seller's Telegram username");
     setBusy(true);
     try {
       const res = await create({ data: {
         asset, amount: amt,
         fiat_amount: fiat ? Number(fiat) : undefined,
         fiat_currency: "USD",
-        counterparty_username: mode === "site" ? username.trim() : undefined,
-        counterparty_telegram: mode === "telegram" ? tg.trim() : undefined,
+        listing_id: listing,
+        counterparty_username: !listing && mode === "site" ? username.trim() : undefined,
+        counterparty_telegram: !listing && mode === "telegram" ? tg.trim() : undefined,
       } });
       toast.success("Escrow group created");
       nav({ to: "/escrow/$id", params: { id: res.id } });
@@ -51,12 +69,14 @@ function NewEscrow() {
       <div>
         <h1 className="text-2xl font-semibold">Create an escrow group</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Invite a seller you want to trade with. The group holds the chat, escrow address, deposit hash,
-          and a button to bring in a moderator if anything goes sideways.
+          {listingMeta
+            ? <>Trading on listing <b>{listingMeta.name}</b>{listingMeta.seller ? <> with seller <b>{listingMeta.seller}</b></> : null}. Pick the crypto and amount to escrow.</>
+            : <>Invite a seller you want to trade with. The group holds the chat, escrow address, deposit hash, and a button to bring in a moderator if anything goes sideways.</>}
         </p>
       </div>
 
       <div className="surface p-6 space-y-4">
+        {!listing && (<>
         <div className="flex items-center gap-2 text-sm font-semibold"><Users2 className="h-4 w-4" /> Counterparty</div>
 
         <Tabs value={mode} onValueChange={(v) => setMode(v as "site"|"telegram")}>
