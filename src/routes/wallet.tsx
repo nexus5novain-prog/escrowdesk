@@ -33,6 +33,21 @@ function Wallet() {
   const { data, refetch } = useQuery({ queryKey: ["me"], queryFn: () => fetchMe() });
   const { data: badges } = useQuery({ queryKey: ["badges"], queryFn: () => fetchBadges() });
   const { data: pnl } = useQuery({ queryKey: ["pnl"], queryFn: () => fetchPnL() });
+  const qc = useQueryClient();
+  const { user } = useAuth();
+
+  // Live updates: when this user's profile or roles change, refresh badges + me
+  useEffect(() => {
+    if (!user) return;
+    const channel = supabase
+      .channel(`wallet-live-${user.id}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "profiles", filter: `user_id=eq.${user.id}` },
+        () => { qc.invalidateQueries({ queryKey: ["badges"] }); qc.invalidateQueries({ queryKey: ["me"] }); })
+      .on("postgres_changes", { event: "*", schema: "public", table: "user_roles", filter: `user_id=eq.${user.id}` },
+        () => { qc.invalidateQueries({ queryKey: ["badges"] }); qc.invalidateQueries({ queryKey: ["my-roles", user.id] }); qc.invalidateQueries({ queryKey: ["me"] }); })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [user, qc]);
 
   const [btc, setBtc] = useState("");
   const [usdt, setUsdt] = useState("");
