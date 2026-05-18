@@ -209,7 +209,7 @@ export const getEscrowGroup = createServerFn({ method: "GET" })
     if (!g) throw new Error("Group not found");
 
     const { data: mems } = await supabaseAdmin
-      .from("escrow_group_members").select("user_id, role, joined_at").eq("group_id", data.id);
+      .from("escrow_group_members").select("user_id, role, joined_at, accepted_at, declined_at").eq("group_id", data.id);
     const isMember = (mems ?? []).some((m) => m.user_id === context.userId);
     if (!isMember) throw new Error("Forbidden");
 
