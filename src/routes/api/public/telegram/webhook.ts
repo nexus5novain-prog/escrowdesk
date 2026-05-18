@@ -308,16 +308,26 @@ async function handle(update: Record<string, unknown>) {
   // Find linked user
   const { data: profile } = await supabaseAdmin
     .from("profiles")
-    .select("user_id, display_name")
+    .select("user_id, display_name, is_banned, ban_reason")
     .eq("telegram_user_id", tgId)
     .maybeSingle();
 
   const send = (t: string) => tgSendMessage(chat.id, t);
+  const roles = profile?.user_id ? await getRoles(profile.user_id) : [];
+  const isAdmin = roles.includes("admin");
+  const isModerator = isAdmin || roles.includes("moderator");
+  const isJudge = isAdmin || roles.includes("judge");
+  const visibleTopics = topicsForRoles(roles);
 
   if (text.startsWith("/start")) {
     const arg = text.split(" ")[1];
     if (arg) return handleLink(chat.id, tgId, from, arg);
-    return send("👋 Welcome to <b>EscrowDesk</b>.\n\nCommands:\n/link CODE – link your web account\n/balance – your wallets\n/trades – your active trades\n/release ID – release a trade\n/dispute ID reason – open a dispute\n/help");
+    return tgCall("sendMessage", {
+      chat_id: chat.id,
+      text: helpMenuText(visibleTopics, roles),
+      parse_mode: "HTML",
+      reply_markup: helpMenuKeyboard(visibleTopics),
+    });
   }
   if (text.startsWith("/help")) {
     const arg = text.split(" ")[1]?.toLowerCase().replace(/^\//, "");
@@ -335,9 +345,9 @@ async function handle(update: Record<string, unknown>) {
     }
     return tgCall("sendMessage", {
       chat_id: chat.id,
-      text: helpMenuText(),
+      text: helpMenuText(visibleTopics, roles),
       parse_mode: "HTML",
-      reply_markup: helpMenuKeyboard(),
+      reply_markup: helpMenuKeyboard(visibleTopics),
     });
   }
   if (text.startsWith("/link")) {
@@ -347,6 +357,11 @@ async function handle(update: Record<string, unknown>) {
   }
 
   if (!profile) return send("⚠️ Your Telegram isn't linked. Generate a code in the web app → Settings → Telegram, then send /link CODE.");
+
+  // Ban gate: banned users can only use /help, /start, /link
+  if (profile.is_banned) {
+    return send(`🚫 Your account is banned.${profile.ban_reason ? `\nReason: ${profile.ban_reason}` : ""}\nContact support if you believe this is a mistake.`);
+  }
 
   if (text.startsWith("/balance")) {
     const { data: w } = await supabaseAdmin.from("wallets").select("asset, available, escrow").eq("user_id", profile.user_id);
@@ -362,7 +377,6 @@ async function handle(update: Record<string, unknown>) {
     return send("📋 <b>Active trades</b>\n" + t.map((x) => `• <code>${x.id.slice(0,8)}</code> ${x.asset} ${x.crypto_amount} ↔ ${x.fiat_amount} ${x.fiat_currency} · ${x.status}`).join("\n"));
   }
   if (text.startsWith("/terms")) {
-    // /terms TRADE_ID my terms text...
     const parts = text.split(" ");
     const idArg = parts[1];
     const termsText = parts.slice(2).join(" ").trim();
@@ -378,7 +392,6 @@ async function handle(update: Record<string, unknown>) {
     return send(error ? `❌ ${error.message}` : `📝 Terms saved for trade <code>${full.slice(0,8)}</code>. Counterparty can read them with /trade ${full.slice(0,8)}, then sign with /sign.`);
   }
   if (text.startsWith("/sign")) {
-    // /sign TRADE_ID I AGREE TO TERMS AND CONDITIONS OF THE SELLER
     const parts = text.split(" ");
     const idArg = parts[1];
     const phrase = parts.slice(2).join(" ").trim();
@@ -413,20 +426,39 @@ async function handle(update: Record<string, unknown>) {
     return send(error ? `❌ ${error.message}` : `🚩 Dispute opened for ${full.slice(0,8)}`);
   }
   if (text.startsWith("/fee")) {
-    const { data: roles } = await supabaseAdmin.from("user_roles").select("role").eq("user_id", profile.user_id);
-    if (!roles?.some((r) => r.role === "admin")) return send("Admin only.");
+    if (!isAdmin) return send("Admin only.");
     const n = Number(text.split(" ")[1]);
     if (!Number.isFinite(n) || n < 0 || n > 1000) return send("Usage: /fee BPS (0..1000)");
     await supabaseAdmin.from("platform_settings").upsert({ key: "fee_bps", value: n, updated_at: new Date().toISOString() });
     return send(`✅ Fee set to ${n} bps`);
   }
   if (text.startsWith("/ban")) {
-    const { data: roles } = await supabaseAdmin.from("user_roles").select("role").eq("user_id", profile.user_id);
-    if (!roles?.some((r) => r.role === "admin")) return send("Admin only.");
+    if (!isModerator) return send("Admin or moderator only.");
+    const parts = text.split(" ");
+    const target = parts[1];
+    const reason = parts.slice(2).join(" ").trim();
+    if (!target || reason.length < 3) return send("Usage: <code>/ban USER_ID reason text…</code> (reason min 3 chars)");
+    const { error } = await supabaseAdmin.rpc("ban_user", { _target: target, _caller: profile.user_id, _reason: reason });
+    return send(error ? `❌ ${error.message}` : `🔨 Banned <code>${target.slice(0,8)}</code>: ${reason}`);
+  }
+  if (text.startsWith("/unban")) {
+    if (!isAdmin) return send("Admin only.");
     const target = text.split(" ")[1];
-    if (!target) return send("Usage: /ban USER_ID");
-    await supabaseAdmin.from("profiles").update({ is_banned: true }).eq("user_id", target);
-    return send(`🔨 Banned ${target.slice(0,8)}`);
+    if (!target) return send("Usage: <code>/unban USER_ID</code>");
+    const { error } = await supabaseAdmin.rpc("unban_user", { _target: target, _caller: profile.user_id });
+    return send(error ? `❌ ${error.message}` : `♻️ Unbanned <code>${target.slice(0,8)}</code>`);
+  }
+  if (text.startsWith("/warn")) {
+    if (!(isAdmin || isModerator || isJudge)) return send("Admin, moderator, or judge only.");
+    const parts = text.split(" ");
+    const target = parts[1];
+    const severity = (parts[2] || "").toLowerCase();
+    const reason = parts.slice(3).join(" ").trim();
+    if (!target || !["minor","major","final"].includes(severity) || reason.length < 3) {
+      return send("Usage: <code>/warn USER_ID severity reason</code>\nseverity = minor | major | final");
+    }
+    const { error } = await supabaseAdmin.rpc("warn_user", { _target: target, _caller: profile.user_id, _reason: reason, _severity: severity });
+    return send(error ? `❌ ${error.message}` : `⚠️ Warned <code>${target.slice(0,8)}</code> (${severity})`);
   }
   return send("Unknown command. Try /help");
 }
