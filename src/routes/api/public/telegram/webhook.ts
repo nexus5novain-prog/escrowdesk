@@ -258,20 +258,31 @@ async function handleCallback(cb: Record<string, unknown>) {
   const id = cb.id as string;
   const data = (cb.data as string | undefined) ?? "";
   const msg = cb.message as { chat: { id: number }; message_id: number } | undefined;
+  const from = cb.from as { id: number } | undefined;
   await tgCall("answerCallbackQuery", { callback_query_id: id });
   if (!msg) return;
+
+  // Look up roles for this Telegram user (if linked) for role-aware help
+  let roles: string[] = [];
+  if (from?.id) {
+    const { data: prof } = await supabaseAdmin
+      .from("profiles").select("user_id").eq("telegram_user_id", from.id).maybeSingle();
+    if (prof?.user_id) roles = await getRoles(prof.user_id);
+  }
+  const visible = topicsForRoles(roles);
+
   if (data === "help:menu") {
     return tgCall("editMessageText", {
       chat_id: msg.chat.id,
       message_id: msg.message_id,
-      text: helpMenuText(),
+      text: helpMenuText(visible, roles),
       parse_mode: "HTML",
-      reply_markup: helpMenuKeyboard(),
+      reply_markup: helpMenuKeyboard(visible),
     });
   }
   if (data.startsWith("help:")) {
     const key = data.slice(5);
-    const topic = HELP_TOPICS.find((t) => t.key === key);
+    const topic = visible.find((t) => t.key === key) ?? HELP_TOPICS.find((t) => t.key === key);
     if (!topic) return;
     return tgCall("editMessageText", {
       chat_id: msg.chat.id,
