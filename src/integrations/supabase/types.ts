@@ -58,6 +58,54 @@ export type Database = {
           },
         ]
       }
+      listings: {
+        Row: {
+          amount: number | null
+          category: string
+          contact_telegram: string | null
+          contact_website: string | null
+          created_at: string
+          currency: string | null
+          description: string
+          id: string
+          kind: Database["public"]["Enums"]["listing_kind"]
+          name: string
+          status: Database["public"]["Enums"]["listing_status"]
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          amount?: number | null
+          category: string
+          contact_telegram?: string | null
+          contact_website?: string | null
+          created_at?: string
+          currency?: string | null
+          description: string
+          id?: string
+          kind: Database["public"]["Enums"]["listing_kind"]
+          name: string
+          status?: Database["public"]["Enums"]["listing_status"]
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          amount?: number | null
+          category?: string
+          contact_telegram?: string | null
+          contact_website?: string | null
+          created_at?: string
+          currency?: string | null
+          description?: string
+          id?: string
+          kind?: Database["public"]["Enums"]["listing_kind"]
+          name?: string
+          status?: Database["public"]["Enums"]["listing_status"]
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       offers: {
         Row: {
           asset: Database["public"]["Enums"]["asset_type"]
@@ -168,6 +216,8 @@ export type Database = {
           display_name: string
           id: string
           is_banned: boolean
+          is_premium: boolean
+          is_trusted: boolean
           rating_count: number
           rating_sum: number
           telegram_user_id: number | null
@@ -186,6 +236,8 @@ export type Database = {
           display_name: string
           id?: string
           is_banned?: boolean
+          is_premium?: boolean
+          is_trusted?: boolean
           rating_count?: number
           rating_sum?: number
           telegram_user_id?: number | null
@@ -204,6 +256,8 @@ export type Database = {
           display_name?: string
           id?: string
           is_banned?: boolean
+          is_premium?: boolean
+          is_trusted?: boolean
           rating_count?: number
           rating_sum?: number
           telegram_user_id?: number | null
@@ -600,6 +654,8 @@ export type Database = {
       app_role: "admin" | "moderator" | "user" | "judge" | "finance" | "support"
       asset_type: "USDT" | "BTC"
       dispute_status: "open" | "resolved_buyer" | "resolved_seller"
+      listing_kind: "selling" | "seeking"
+      listing_status: "active" | "inactive" | "sold"
       offer_side: "buy" | "sell"
       offer_status: "active" | "paused" | "closed"
       trade_status:
@@ -749,6 +805,8 @@ export const Constants = {
       app_role: ["admin", "moderator", "user", "judge", "finance", "support"],
       asset_type: ["USDT", "BTC"],
       dispute_status: ["open", "resolved_buyer", "resolved_seller"],
+      listing_kind: ["selling", "seeking"],
+      listing_status: ["active", "inactive", "sold"],
       offer_side: ["buy", "sell"],
       offer_status: ["active", "paused", "closed"],
       trade_status: [
