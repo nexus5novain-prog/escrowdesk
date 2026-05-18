@@ -3,11 +3,13 @@ import { createHash, timingSafeEqual } from "crypto";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { tgCall, tgSendMessage } from "@/lib/telegram.server";
 
+type HelpScope = "user" | "staff" | "admin";
 type HelpTopic = {
   key: string;
   label: string;
   title: string;
   body: string;
+  scope?: HelpScope; // defaults to "user"
 };
 
 const HELP_TOPICS: HelpTopic[] = [
