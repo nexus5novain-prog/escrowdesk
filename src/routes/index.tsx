@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { fmtFiat } from "@/lib/format";
-import { Crown, ShieldCheck, Send, Globe, Plus, Search, Sparkles, ArrowLeftRight } from "lucide-react";
+import { Crown, ShieldCheck, Send, Globe, Plus, Search, Sparkles, ArrowLeftRight, Handshake } from "lucide-react";
 
 export const Route = createFileRoute("/")({
   head: () => ({
