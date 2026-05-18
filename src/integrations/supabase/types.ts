@@ -212,8 +212,11 @@ export type Database = {
           banned_at: string | null
           banned_by: string | null
           bio: string | null
+          btc_volume_usd: number
           created_at: string
           display_name: string
+          distinct_partners: number
+          five_star_count: number
           id: string
           is_banned: boolean
           is_premium: boolean
@@ -225,6 +228,8 @@ export type Database = {
           trades_completed: number
           updated_at: string
           user_id: string
+          wallet_address_btc: string | null
+          wallet_address_usdt: string | null
         }
         Insert: {
           avatar_url?: string | null
@@ -232,8 +237,11 @@ export type Database = {
           banned_at?: string | null
           banned_by?: string | null
           bio?: string | null
+          btc_volume_usd?: number
           created_at?: string
           display_name: string
+          distinct_partners?: number
+          five_star_count?: number
           id?: string
           is_banned?: boolean
           is_premium?: boolean
@@ -245,6 +253,8 @@ export type Database = {
           trades_completed?: number
           updated_at?: string
           user_id: string
+          wallet_address_btc?: string | null
+          wallet_address_usdt?: string | null
         }
         Update: {
           avatar_url?: string | null
@@ -252,8 +262,11 @@ export type Database = {
           banned_at?: string | null
           banned_by?: string | null
           bio?: string | null
+          btc_volume_usd?: number
           created_at?: string
           display_name?: string
+          distinct_partners?: number
+          five_star_count?: number
           id?: string
           is_banned?: boolean
           is_premium?: boolean
@@ -265,6 +278,8 @@ export type Database = {
           trades_completed?: number
           updated_at?: string
           user_id?: string
+          wallet_address_btc?: string | null
+          wallet_address_usdt?: string | null
         }
         Relationships: []
       }
@@ -326,6 +341,36 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      trade_ratings: {
+        Row: {
+          comment: string | null
+          created_at: string
+          id: string
+          ratee_id: string
+          rater_id: string
+          stars: number
+          trade_id: string
+        }
+        Insert: {
+          comment?: string | null
+          created_at?: string
+          id?: string
+          ratee_id: string
+          rater_id: string
+          stars: number
+          trade_id: string
+        }
+        Update: {
+          comment?: string | null
+          created_at?: string
+          id?: string
+          ratee_id?: string
+          rater_id?: string
+          stars?: number
+          trade_id?: string
+        }
+        Relationships: []
       }
       trades: {
         Row: {
@@ -597,6 +642,7 @@ export type Database = {
         Args: { _caller: string; _reason: string; _trade_id: string }
         Returns: string
       }
+      recompute_user_badges: { Args: { _user: string }; Returns: undefined }
       release_trade: {
         Args: { _caller: string; _trade_id: string }
         Returns: undefined

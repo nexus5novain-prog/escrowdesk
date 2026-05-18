@@ -660,3 +660,101 @@ export const tgSendTest = createServerFn({ method: "POST" })
     if (!r?.ok) throw new Error(r?.description || "send failed");
     return { ok: true };
   });
+
+// ---------- Wallet addresses (replaces deposits) ----------
+export const updateWalletAddresses = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator(
+    z.object({
+      wallet_address_btc: z.string().trim().max(120).optional().nullable(),
+      wallet_address_usdt: z.string().trim().max(120).optional().nullable(),
+    }),
+  )
+  .handler(async ({ data, context }) => {
+    const patch: { wallet_address_btc?: string | null; wallet_address_usdt?: string | null } = {};
+    if (data.wallet_address_btc !== undefined)
+      patch.wallet_address_btc = data.wallet_address_btc || null;
+    if (data.wallet_address_usdt !== undefined)
+      patch.wallet_address_usdt = data.wallet_address_usdt || null;
+    const { error } = await supabaseAdmin
+      .from("profiles").update(patch).eq("user_id", context.userId);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+// ---------- Trade ratings ----------
+export const submitRating = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator(
+    z.object({
+      trade_id: z.string().uuid(),
+      stars: z.number().int().min(1).max(5),
+      comment: z.string().trim().max(500).optional(),
+    }),
+  )
+  .handler(async ({ data, context }) => {
+    const { data: t, error: te } = await supabaseAdmin
+      .from("trades")
+      .select("id,status,buyer_id,seller_id")
+      .eq("id", data.trade_id)
+      .maybeSingle();
+    if (te) throw new Error(te.message);
+    if (!t) throw new Error("Trade not found");
+    if (t.status !== "released") throw new Error("Can only rate completed trades");
+    const ratee =
+      t.buyer_id === context.userId ? t.seller_id
+      : t.seller_id === context.userId ? t.buyer_id
+      : null;
+    if (!ratee) throw new Error("Not a participant");
+    const { error } = await supabaseAdmin.from("trade_ratings").insert({
+      trade_id: data.trade_id,
+      rater_id: context.userId,
+      ratee_id: ratee,
+      stars: data.stars,
+      comment: data.comment ?? null,
+    });
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+export const getTradeRatings = createServerFn({ method: "GET" })
+  .inputValidator(z.object({ trade_id: z.string().uuid() }))
+  .handler(async ({ data }) => {
+    const { data: rows, error } = await supabaseAdmin
+      .from("trade_ratings")
+      .select("id,rater_id,ratee_id,stars,comment,created_at")
+      .eq("trade_id", data.trade_id);
+    if (error) throw new Error(error.message);
+    return { ratings: rows ?? [] };
+  });
+
+// ---------- Badge progress (for current user) ----------
+export const getBadgeProgress = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const u = context.userId;
+    const [{ data: prof }, { count: tradesCount }, ratings, partners] = await Promise.all([
+      supabaseAdmin.from("profiles").select("is_trusted,is_premium,btc_volume_usd,five_star_count,distinct_partners").eq("user_id", u).maybeSingle(),
+      supabaseAdmin.from("trades").select("id", { count: "exact", head: true }).eq("status","released").or(`buyer_id.eq.${u},seller_id.eq.${u}`),
+      supabaseAdmin.from("trade_ratings").select("rater_id,stars").eq("ratee_id", u),
+      supabaseAdmin.from("trades").select("buyer_id,seller_id").eq("status","released").or(`buyer_id.eq.${u},seller_id.eq.${u}`),
+    ]);
+    const distinct4plus = new Set(
+      (ratings.data ?? []).filter((r) => r.stars >= 4).map((r) => r.rater_id),
+    ).size;
+    const partnerCounts = new Map<string, number>();
+    for (const t of partners.data ?? []) {
+      const p = t.buyer_id === u ? t.seller_id : t.buyer_id;
+      partnerCounts.set(p, (partnerCounts.get(p) ?? 0) + 1);
+    }
+    const maxRepeat = Math.max(0, ...Array.from(partnerCounts.values()));
+    return {
+      is_trusted: !!prof?.is_trusted,
+      is_premium: !!prof?.is_premium,
+      trades_completed: tradesCount ?? 0,
+      distinct_4plus_raters: distinct4plus,
+      max_repeat_partner: maxRepeat,
+      btc_volume_usd: Number(prof?.btc_volume_usd ?? 0),
+      five_star_count: prof?.five_star_count ?? 0,
+    };
+  });

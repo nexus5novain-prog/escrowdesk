@@ -1,9 +1,11 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { AuthGate } from "@/components/AuthGate";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useServerFn } from "@tanstack/react-start";
+import { useQuery } from "@tanstack/react-query";
 import { createListing } from "@/lib/marketplace.functions";
+import { getMe } from "@/lib/escrow.functions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -21,6 +23,8 @@ type Kind = "selling" | "seeking";
 function Page() {
   const nav = useNavigate();
   const fn = useServerFn(createListing);
+  const fetchMe = useServerFn(getMe);
+  const { data: me } = useQuery({ queryKey: ["me"], queryFn: () => fetchMe() });
   const [step, setStep] = useState<1 | 2>(1);
   const [kind, setKind] = useState<Kind | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -28,6 +32,13 @@ function Page() {
     name: "", description: "", category: "", amount: "", currency: "USD",
     contact_telegram: "", contact_website: "",
   });
+
+  // Prefill telegram from the linked profile
+  useEffect(() => {
+    const tg = (me?.profile as { telegram_username?: string | null } | undefined)?.telegram_username;
+    if (tg && !f.contact_telegram) setF((x) => ({ ...x, contact_telegram: tg.startsWith("@") ? tg : `@${tg}` }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [me?.profile]);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -45,7 +56,7 @@ function Page() {
         contact_website: f.contact_website || undefined,
       }});
       toast.success("Listing published");
-      nav({ to: "/marketplace" });
+      nav({ to: "/" });
     } catch (err) {
       toast.error((err as Error).message);
     } finally {
@@ -56,7 +67,7 @@ function Page() {
   return (
     <div className="mx-auto max-w-2xl space-y-4">
       <div className="flex items-center justify-between">
-        <Link to="/marketplace" className="text-xs text-muted-foreground hover:text-foreground">← Back to marketplace</Link>
+        <Link to="/" className="text-xs text-muted-foreground hover:text-foreground">← Back to marketplace</Link>
         <Badge variant="outline" className="font-mono text-[10px]">Step {step} of 2</Badge>
       </div>
 

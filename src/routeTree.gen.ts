@@ -14,7 +14,7 @@ import { Route as TradesRouteImport } from './routes/trades'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as PostOfferRouteImport } from './routes/post-offer'
 import { Route as PostListingRouteImport } from './routes/post-listing'
-import { Route as MarketplaceRouteImport } from './routes/marketplace'
+import { Route as OrderBookRouteImport } from './routes/order-book'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AdminRouteImport } from './routes/admin'
 import { Route as IndexRouteImport } from './routes/index'
@@ -48,9 +48,9 @@ const PostListingRoute = PostListingRouteImport.update({
   path: '/post-listing',
   getParentRoute: () => rootRouteImport,
 } as any)
-const MarketplaceRoute = MarketplaceRouteImport.update({
-  id: '/marketplace',
-  path: '/marketplace',
+const OrderBookRoute = OrderBookRouteImport.update({
+  id: '/order-book',
+  path: '/order-book',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthRoute = AuthRouteImport.update({
@@ -94,7 +94,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/admin': typeof AdminRoute
   '/auth': typeof AuthRoute
-  '/marketplace': typeof MarketplaceRoute
+  '/order-book': typeof OrderBookRoute
   '/post-listing': typeof PostListingRoute
   '/post-offer': typeof PostOfferRoute
   '/settings': typeof SettingsRoute
@@ -109,7 +109,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/admin': typeof AdminRoute
   '/auth': typeof AuthRoute
-  '/marketplace': typeof MarketplaceRoute
+  '/order-book': typeof OrderBookRoute
   '/post-listing': typeof PostListingRoute
   '/post-offer': typeof PostOfferRoute
   '/settings': typeof SettingsRoute
@@ -125,7 +125,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/admin': typeof AdminRoute
   '/auth': typeof AuthRoute
-  '/marketplace': typeof MarketplaceRoute
+  '/order-book': typeof OrderBookRoute
   '/post-listing': typeof PostListingRoute
   '/post-offer': typeof PostOfferRoute
   '/settings': typeof SettingsRoute
@@ -142,7 +142,7 @@ export interface FileRouteTypes {
     | '/'
     | '/admin'
     | '/auth'
-    | '/marketplace'
+    | '/order-book'
     | '/post-listing'
     | '/post-offer'
     | '/settings'
@@ -157,7 +157,7 @@ export interface FileRouteTypes {
     | '/'
     | '/admin'
     | '/auth'
-    | '/marketplace'
+    | '/order-book'
     | '/post-listing'
     | '/post-offer'
     | '/settings'
@@ -172,7 +172,7 @@ export interface FileRouteTypes {
     | '/'
     | '/admin'
     | '/auth'
-    | '/marketplace'
+    | '/order-book'
     | '/post-listing'
     | '/post-offer'
     | '/settings'
@@ -188,7 +188,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AdminRoute: typeof AdminRoute
   AuthRoute: typeof AuthRoute
-  MarketplaceRoute: typeof MarketplaceRoute
+  OrderBookRoute: typeof OrderBookRoute
   PostListingRoute: typeof PostListingRoute
   PostOfferRoute: typeof PostOfferRoute
   SettingsRoute: typeof SettingsRoute
@@ -237,11 +237,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PostListingRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/marketplace': {
-      id: '/marketplace'
-      path: '/marketplace'
-      fullPath: '/marketplace'
-      preLoaderRoute: typeof MarketplaceRouteImport
+    '/order-book': {
+      id: '/order-book'
+      path: '/order-book'
+      fullPath: '/order-book'
+      preLoaderRoute: typeof OrderBookRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/auth': {
@@ -300,7 +300,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AdminRoute: AdminRoute,
   AuthRoute: AuthRoute,
-  MarketplaceRoute: MarketplaceRoute,
+  OrderBookRoute: OrderBookRoute,
   PostListingRoute: PostListingRoute,
   PostOfferRoute: PostOfferRoute,
   SettingsRoute: SettingsRoute,
