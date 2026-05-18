@@ -34,7 +34,35 @@ async function handle(update: Record<string, unknown>) {
     if (arg) return handleLink(chat.id, tgId, from, arg);
     return send("👋 Welcome to <b>EscrowDesk</b>.\n\nCommands:\n/link CODE – link your web account\n/balance – your wallets\n/trades – your active trades\n/release ID – release a trade\n/dispute ID reason – open a dispute\n/help");
   }
-  if (text.startsWith("/help")) return send("Commands: /link, /balance, /trades, /release ID, /dispute ID reason, /fee N (admin)");
+  if (text.startsWith("/help")) {
+    return send(
+      [
+        "<b>📖 EscrowDesk Commands</b>",
+        "",
+        "<b>Account</b>",
+        "• <code>/start</code> — welcome &amp; quick start",
+        "• <code>/link CODE</code> — link your web account",
+        "   ex: <code>/link AB12CD</code>",
+        "",
+        "<b>Wallets &amp; Trades</b>",
+        "• <code>/balance</code> — show wallet balances",
+        "• <code>/trades</code> — list your active trades",
+        "",
+        "<b>Escrow Actions</b>",
+        "• <code>/release TRADE_ID</code> — release escrow to buyer",
+        "   ex: <code>/release 1a2b3c4d</code>",
+        "• <code>/dispute TRADE_ID reason</code> — open a dispute (reason ≥ 5 chars)",
+        "   ex: <code>/dispute 1a2b3c4d payment not received</code>",
+        "",
+        "<b>Admin</b>",
+        "• <code>/fee BPS</code> — set platform fee in basis points (0–1000)",
+        "   ex: <code>/fee 50</code> = 0.50%",
+        "• <code>/ban USER_ID</code> — ban a user",
+        "",
+        "<i>Tip: TRADE_ID accepts the first 8 chars shown in /trades.</i>",
+      ].join("\n")
+    );
+  }
   if (text.startsWith("/link")) {
     const code = text.split(" ")[1]?.trim();
     if (!code) return send("Usage: /link CODE");
