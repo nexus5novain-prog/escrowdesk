@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { fmtFiat } from "@/lib/format";
-import { Crown, ShieldCheck, Send, Globe, Plus, Search, Sparkles, ArrowLeftRight } from "lucide-react";
+import { Crown, ShieldCheck, Send, Globe, Plus, Search, Sparkles, ArrowLeftRight, Handshake } from "lucide-react";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -154,6 +154,8 @@ function ListingTable({ title, tone, rows, loading, emptyText }: {
 }
 
 function ListingCard({ row }: { row: ListingRow }) {
+  const { user } = useAuth();
+  const nav = useNavigate();
   const tg = row.contact_telegram?.replace(/^@/, "");
   const tgLink = tg ? `https://t.me/${tg}` : row.profile?.telegram_username ? `https://t.me/${row.profile.telegram_username.replace(/^@/, "")}` : null;
   const web = row.contact_website
@@ -163,6 +165,10 @@ function ListingCard({ row }: { row: ListingRow }) {
     if (!row.profile?.rating_count) return null;
     return (row.profile.rating_sum / row.profile.rating_count).toFixed(1);
   }, [row.profile]);
+  const startTrade = () => {
+    if (!user) return nav({ to: "/auth" });
+    nav({ to: "/escrow/new", search: { listing: row.id } });
+  };
   return (
     <motion.div
       layout
@@ -188,6 +194,9 @@ function ListingCard({ row }: { row: ListingRow }) {
           </div>
         </div>
         <div className="flex flex-col items-end gap-1">
+          <Button size="sm" onClick={startTrade} className="h-7 gap-1 px-2 text-[11px]">
+            <Handshake className="h-3 w-3" /> {row.kind === "selling" ? "Trade" : "Offer"}
+          </Button>
           {tgLink && (
             <a href={tgLink} target="_blank" rel="noreferrer">
               <Button size="sm" variant="secondary" className="h-7 gap-1 px-2 text-[11px]"><Send className="h-3 w-3" /> Telegram</Button>
