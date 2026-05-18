@@ -139,6 +139,7 @@ const HELP_TOPICS: HelpTopic[] = [
     key: "fee",
     label: "⚙️ /fee (admin)",
     title: "⚙️ <b>/fee BPS</b> — Set legacy platform fee (admin)",
+    scope: "admin",
     body: [
       "Sets the legacy flat fee in basis points (overridden by tiered fees if present).",
       "",
@@ -150,6 +151,7 @@ const HELP_TOPICS: HelpTopic[] = [
     key: "ban",
     label: "🔨 /ban (staff)",
     title: "🔨 <b>/ban USER_ID reason</b> — Ban a user (admin/moderator)",
+    scope: "staff",
     body: [
       "Bans a user with a required reason. They lose trading access.",
       "",
@@ -164,6 +166,7 @@ const HELP_TOPICS: HelpTopic[] = [
     key: "unban",
     label: "♻️ /unban (admin)",
     title: "♻️ <b>/unban USER_ID</b> — Unban a user (admin)",
+    scope: "admin",
     body: [
       "Lifts a ban. Only admins can unban.",
       "",
@@ -175,6 +178,7 @@ const HELP_TOPICS: HelpTopic[] = [
     key: "warn",
     label: "⚠️ /warn (staff)",
     title: "⚠️ <b>/warn USER_ID severity reason</b> — Warn a user",
+    scope: "staff",
     body: [
       "Admin, moderator, or judge can issue warnings.",
       "Severity: <code>minor</code> | <code>major</code> | <code>final</code>",
@@ -187,6 +191,17 @@ const HELP_TOPICS: HelpTopic[] = [
     ].join("\n"),
   },
 ];
+
+function topicsForRoles(roles: string[]): HelpTopic[] {
+  const isAdmin = roles.includes("admin");
+  const isStaff = isAdmin || roles.some((r) => ["moderator","judge","finance","support"].includes(r));
+  return HELP_TOPICS.filter((t) => {
+    const s = t.scope ?? "user";
+    if (s === "admin") return isAdmin;
+    if (s === "staff") return isStaff;
+    return true;
+  });
+}
 
 function helpMenuKeyboard() {
   const rows: { text: string; callback_data: string }[][] = [];
