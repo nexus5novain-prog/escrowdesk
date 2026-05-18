@@ -6,6 +6,7 @@ import { useEffect, useRef, useState } from "react";
 import {
   getEscrowGroup, sendGroupMessage, inviteModerator,
   submitGroupTxHash, releaseEscrowGroup, cancelEscrowGroup,
+  acceptEscrowInvite, declineEscrowInvite, verifyGroupDeposit,
 } from "@/lib/escrow-groups.functions";
 import { useAuth } from "@/hooks/use-auth";
 import { supabase } from "@/integrations/supabase/client";
@@ -72,6 +73,9 @@ function EscrowGroupPage() {
   const submitHash = useServerFn(submitGroupTxHash);
   const release = useServerFn(releaseEscrowGroup);
   const cancel = useServerFn(cancelEscrowGroup);
+  const accept = useServerFn(acceptEscrowInvite);
+  const decline = useServerFn(declineEscrowInvite);
+  const verify = useServerFn(verifyGroupDeposit);
 
   const { data, refetch } = useQuery({
     queryKey: ["escrow-group", id],
@@ -97,12 +101,19 @@ function EscrowGroupPage() {
     id: string; creator_id: string; counterparty_id: string | null; asset: string; amount: number;
     fiat_amount: number | null; fiat_currency: string; status: string;
     escrow_address: string | null; escrow_address_chain: string | null;
-    deposit_tx_hash: string | null; telegram_chat_id: number | null;
+    deposit_tx_hash: string | null; deposit_verified_at: string | null;
+    telegram_chat_id: number | null;
     telegram_link_token: string | null; invited_telegram: string | null;
     invited_username: string | null;
   };
   const isBuyer = user?.id === g.creator_id;
   const isSeller = user?.id === g.counterparty_id;
+  const myMember = data.members.find((m) => m.user_id === user?.id) as
+    { accepted_at: string | null; declined_at: string | null; role: string } | undefined;
+  const sellerMember = data.members.find((m) => m.role === "seller") as
+    { accepted_at: string | null; declined_at: string | null } | undefined;
+  const sellerPending = !!sellerMember && !sellerMember.accepted_at && !sellerMember.declined_at;
+  const iAmPendingInvitee = !!myMember && !myMember.accepted_at && !myMember.declined_at && myMember.role !== "buyer";
 
   const act = async (fn: () => Promise<unknown>, ok: string) => {
     try { await fn(); toast.success(ok); refetch(); } catch (e) { toast.error((e as Error).message); }
@@ -148,8 +159,31 @@ function EscrowGroupPage() {
 
         <StatusTimeline status={g.status} />
 
-        {/* Buyer: submit tx hash */}
-        {isBuyer && g.escrow_address && !g.deposit_tx_hash && (
+        {/* Pending invite — for the invited counterparty (seller or moderator) */}
+        {iAmPendingInvitee && (
+          <div className="surface border-primary/40 p-5 space-y-3">
+            <div className="flex items-center gap-2 font-semibold text-primary">
+              <ShieldAlert className="h-4 w-4" /> You've been invited to this escrow
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Accept to join the chat, see the escrow address, and verify the buyer's deposit. Decline to refuse and cancel the group.
+            </p>
+            <div className="flex gap-2">
+              <Button onClick={() => act(() => accept({ data: { group_id: g.id } }), "Invite accepted")}>Accept invite</Button>
+              <Button variant="ghost" onClick={() => act(() => decline({ data: { group_id: g.id } }), "Invite declined")}>Decline</Button>
+            </div>
+          </div>
+        )}
+
+        {/* Buyer waiting on seller */}
+        {isBuyer && sellerPending && (
+          <div className="surface p-5 text-sm text-muted-foreground">
+            ⏳ Waiting for <b className="text-foreground">{data.members.find((m) => m.role === "seller")?.profile?.display_name ?? "the seller"}</b> to accept the invite. They've been notified on Telegram (if linked).
+          </div>
+        )}
+
+        {/* Buyer: submit tx hash — only after seller accepted */}
+        {isBuyer && !sellerPending && g.escrow_address && !g.deposit_tx_hash && g.status !== "cancelled" && (
           <div className="surface p-5 space-y-3">
             <div className="flex items-center gap-2 font-semibold"><Hash className="h-4 w-4" /> Submit deposit transaction hash</div>
             <p className="text-xs text-muted-foreground">
@@ -163,14 +197,29 @@ function EscrowGroupPage() {
           </div>
         )}
 
-        {/* Seller: release */}
-        {isSeller && g.status === "funded" && (
-          <div className="surface p-5 space-y-2">
-            <div className="flex items-center gap-2 font-semibold text-emerald-400"><CheckCircle2 className="h-4 w-4" /> Confirm & release</div>
-            <p className="text-xs text-muted-foreground">Verify the buyer's tx hash on-chain before releasing.</p>
-            <Button onClick={() => act(() => release({ data: { group_id: g.id } }), "Released")}>Release escrow to buyer</Button>
+        {/* Seller: verify deposit then release */}
+        {isSeller && !iAmPendingInvitee && g.status === "funded" && (
+          <div className="surface p-5 space-y-3">
+            <div className="flex items-center gap-2 font-semibold text-emerald-400"><CheckCircle2 className="h-4 w-4" /> Verify deposit & release</div>
+            <p className="text-xs text-muted-foreground">
+              Buyer submitted tx <code className="font-mono">{g.deposit_tx_hash}</code>. Check the {g.escrow_address_chain ?? g.asset} chain to confirm{" "}
+              {g.amount} {g.asset} arrived at <code className="font-mono">{g.escrow_address}</code>.
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {!g.deposit_verified_at ? (
+                <Button variant="outline" onClick={() => act(() => verify({ data: { group_id: g.id } }), "Deposit marked verified")}>
+                  Mark deposit verified
+                </Button>
+              ) : (
+                <Badge className="bg-emerald-500/15 text-emerald-300">Deposit verified on-chain</Badge>
+              )}
+              <Button disabled={!g.deposit_verified_at} onClick={() => act(() => release({ data: { group_id: g.id } }), "Released")}>
+                Release escrow to buyer
+              </Button>
+            </div>
           </div>
         )}
+
 
         {/* Actions */}
         <div className="surface p-5">

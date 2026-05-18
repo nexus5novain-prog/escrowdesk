@@ -103,18 +103,100 @@ export const createEscrowGroup = createServerFn({ method: "POST" })
       fiat_currency: data.fiat_currency,
       escrow_address: sellerAddress.address,
       escrow_address_chain: sellerAddress.chain,
-      status: sellerId ? "active" : "awaiting_counterparty",
+      status: "awaiting_counterparty",
     } as never).select("id, telegram_link_token").single();
     if (error) throw new Error(error.message);
 
-    // Members
+    // Members — buyer auto-accepted, seller pending acceptance
     await supabaseAdmin.from("escrow_group_members").insert([
-      { group_id: g.id, user_id: userId, role: "buyer" },
-      ...(sellerId ? [{ group_id: g.id, user_id: sellerId, role: "seller" as const }] : []),
+      { group_id: g.id, user_id: userId, role: "buyer", accepted_at: new Date().toISOString() },
+      ...(sellerId ? [{ group_id: g.id, user_id: sellerId, role: "seller" as const, accepted_at: null }] : []),
     ] as never);
 
-    await systemMsg(g.id, `Escrow group created by buyer for ${data.amount} ${data.asset}${sellerAddress.address ? ` → payout address ${sellerAddress.address}` : " (seller has no payout address on file)"}.`);
+    // Buyer profile for notification text
+    const { data: buyerProfile } = await supabaseAdmin
+      .from("profiles").select("display_name").eq("user_id", userId).maybeSingle();
+    const buyerName = buyerProfile?.display_name ?? "A buyer";
+
+    await systemMsg(g.id, `Escrow group created for ${data.amount} ${data.asset}. ${sellerId ? "Awaiting seller to accept the invite." : "Awaiting seller acceptance."}`);
+
+    // Notify seller in-app + Telegram
+    if (sellerId) {
+      const { data: sellerProfile } = await supabaseAdmin
+        .from("profiles").select("telegram_user_id").eq("user_id", sellerId).maybeSingle();
+      const inviteUrl = `${process.env.SITE_URL ?? "https://escrowdesk.lovable.app"}/escrow/${g.id}`;
+      if (sellerProfile?.telegram_user_id) {
+        await tgSendMessage(Number(sellerProfile.telegram_user_id),
+          `🤝 <b>New escrow invite</b>\n${escapeHtml(buyerName)} wants to trade <b>${data.amount} ${data.asset}</b> with you.\n\nReview & accept: ${inviteUrl}`);
+      }
+    } else if (data.counterparty_telegram) {
+      // Seller has no site account yet — notify by @username via Telegram (best effort)
+      await systemMsg(g.id, `Invited @${data.counterparty_telegram.replace(/^@/,"")} on Telegram — they must link the bot to join.`);
+    }
+
     return { id: g.id, telegram_link_token: g.telegram_link_token };
+  });
+
+// -------- Accept / decline invite --------
+export const acceptEscrowInvite = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator(z.object({ group_id: z.string().uuid() }))
+  .handler(async ({ data, context }) => {
+    const { data: mem } = await supabaseAdmin.from("escrow_group_members")
+      .select("role, accepted_at, declined_at")
+      .eq("group_id", data.group_id).eq("user_id", context.userId).maybeSingle();
+    if (!mem) throw new Error("You're not invited to this group");
+    if (mem.accepted_at) return { ok: true };
+    if (mem.declined_at) throw new Error("You previously declined this invite");
+    await supabaseAdmin.from("escrow_group_members")
+      .update({ accepted_at: new Date().toISOString() } as never)
+      .eq("group_id", data.group_id).eq("user_id", context.userId);
+    // If seller accepted, move group to active
+    if (mem.role === "seller") {
+      await supabaseAdmin.from("escrow_groups")
+        .update({ status: "active" } as never)
+        .eq("id", data.group_id).eq("status", "awaiting_counterparty");
+    }
+    const { data: p } = await supabaseAdmin.from("profiles").select("display_name").eq("user_id", context.userId).maybeSingle();
+    await systemMsg(data.group_id, `✅ ${p?.display_name ?? "Counterparty"} accepted the invite.`);
+    return { ok: true };
+  });
+
+export const declineEscrowInvite = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator(z.object({ group_id: z.string().uuid() }))
+  .handler(async ({ data, context }) => {
+    const { data: mem } = await supabaseAdmin.from("escrow_group_members")
+      .select("role").eq("group_id", data.group_id).eq("user_id", context.userId).maybeSingle();
+    if (!mem) throw new Error("Not invited");
+    await supabaseAdmin.from("escrow_group_members")
+      .update({ declined_at: new Date().toISOString() } as never)
+      .eq("group_id", data.group_id).eq("user_id", context.userId);
+    if (mem.role === "seller") {
+      await supabaseAdmin.from("escrow_groups")
+        .update({ status: "cancelled" } as never).eq("id", data.group_id);
+    }
+    const { data: p } = await supabaseAdmin.from("profiles").select("display_name").eq("user_id", context.userId).maybeSingle();
+    await systemMsg(data.group_id, `❌ ${p?.display_name ?? "Counterparty"} declined the invite. Group cancelled.`);
+    return { ok: true };
+  });
+
+// -------- Seller verifies on-chain deposit --------
+export const verifyGroupDeposit = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator(z.object({ group_id: z.string().uuid() }))
+  .handler(async ({ data, context }) => {
+    const { data: g } = await supabaseAdmin.from("escrow_groups")
+      .select("counterparty_id, deposit_tx_hash, status").eq("id", data.group_id).maybeSingle();
+    if (!g) throw new Error("Not found");
+    if (g.counterparty_id !== context.userId) throw new Error("Only the seller can verify the deposit");
+    if (!g.deposit_tx_hash) throw new Error("Buyer hasn't submitted a tx hash yet");
+    if (g.status !== "funded") throw new Error("Group not in funded state");
+    await supabaseAdmin.from("escrow_groups")
+      .update({ deposit_verified_at: new Date().toISOString() } as never)
+      .eq("id", data.group_id);
+    await systemMsg(data.group_id, `🔎 Seller verified the deposit on-chain. Ready to release.`);
+    return { ok: true };
   });
 
 // -------- Get a group --------
@@ -127,7 +209,7 @@ export const getEscrowGroup = createServerFn({ method: "GET" })
     if (!g) throw new Error("Group not found");
 
     const { data: mems } = await supabaseAdmin
-      .from("escrow_group_members").select("user_id, role, joined_at").eq("group_id", data.id);
+      .from("escrow_group_members").select("user_id, role, joined_at, accepted_at, declined_at").eq("group_id", data.id);
     const isMember = (mems ?? []).some((m) => m.user_id === context.userId);
     if (!isMember) throw new Error("Forbidden");
 

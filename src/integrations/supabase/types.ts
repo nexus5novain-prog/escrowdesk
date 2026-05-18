@@ -60,18 +60,24 @@ export type Database = {
       }
       escrow_group_members: {
         Row: {
+          accepted_at: string | null
+          declined_at: string | null
           group_id: string
           joined_at: string
           role: Database["public"]["Enums"]["escrow_member_role"]
           user_id: string
         }
         Insert: {
+          accepted_at?: string | null
+          declined_at?: string | null
           group_id: string
           joined_at?: string
           role: Database["public"]["Enums"]["escrow_member_role"]
           user_id: string
         }
         Update: {
+          accepted_at?: string | null
+          declined_at?: string | null
           group_id?: string
           joined_at?: string
           role?: Database["public"]["Enums"]["escrow_member_role"]
@@ -133,6 +139,7 @@ export type Database = {
           created_at: string
           creator_id: string
           deposit_tx_hash: string | null
+          deposit_verified_at: string | null
           escrow_address: string | null
           escrow_address_chain: string | null
           fiat_amount: number | null
@@ -155,6 +162,7 @@ export type Database = {
           created_at?: string
           creator_id: string
           deposit_tx_hash?: string | null
+          deposit_verified_at?: string | null
           escrow_address?: string | null
           escrow_address_chain?: string | null
           fiat_amount?: number | null
@@ -177,6 +185,7 @@ export type Database = {
           created_at?: string
           creator_id?: string
           deposit_tx_hash?: string | null
+          deposit_verified_at?: string | null
           escrow_address?: string | null
           escrow_address_chain?: string | null
           fiat_amount?: number | null
