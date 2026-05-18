@@ -8,6 +8,8 @@ import {
   adminListOffers, adminUpdateOfferStatus,
   adminListTrades, adminForceCancelTrade, adminForceReleaseTrade,
   tgGetStatus, tgSetWebhook, tgDeleteWebhook, tgSendTest,
+  adminListUsers, adminBanUser, adminUnbanUser, adminWarnUser,
+  adminAssignRole, adminRevokeRole, adminUnlinkTelegram, adminListWarnings,
 } from "@/lib/escrow.functions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -42,12 +44,16 @@ function Admin() {
           <TabsTrigger value="disputes">Disputes</TabsTrigger>
           <TabsTrigger value="offers">Offers</TabsTrigger>
           <TabsTrigger value="trades">Trades</TabsTrigger>
+          <TabsTrigger value="users">Users</TabsTrigger>
+          <TabsTrigger value="warnings">Warnings</TabsTrigger>
           <TabsTrigger value="telegram">Telegram</TabsTrigger>
           <TabsTrigger value="settings">Settings</TabsTrigger>
         </TabsList>
         <TabsContent value="disputes" className="mt-4"><DisputesPanel /></TabsContent>
         <TabsContent value="offers" className="mt-4"><OffersPanel /></TabsContent>
         <TabsContent value="trades" className="mt-4"><TradesPanel /></TabsContent>
+        <TabsContent value="users" className="mt-4"><UsersPanel /></TabsContent>
+        <TabsContent value="warnings" className="mt-4"><WarningsPanel /></TabsContent>
         <TabsContent value="telegram" className="mt-4"><TelegramPanel /></TabsContent>
         <TabsContent value="settings" className="mt-4"><SettingsPanel /></TabsContent>
       </Tabs>
@@ -303,10 +309,113 @@ function SettingsPanel() {
   const [fee, setFeeVal] = useState("100");
   return (
     <div className="surface p-5">
-      <h2 className="font-semibold">Platform fee (bps · 100 = 1%)</h2>
+      <h2 className="font-semibold">Platform fee (bps · 100 = 1%) — legacy override</h2>
+      <p className="mt-1 text-xs text-muted-foreground">Tiered fees (set in <code className="font-mono">platform_settings.fee_tiers</code>) take precedence. This is a fallback if no tiers exist.</p>
       <div className="mt-2 flex gap-2">
         <Input className="w-32 font-mono" value={fee} onChange={(e) => setFeeVal(e.target.value)} />
         <Button onClick={async () => { try { await setFee({ data: { fee_bps: Number(fee) } }); toast.success("Saved"); } catch (e) { toast.error((e as Error).message); } }}>Save</Button>
+      </div>
+    </div>
+  );
+}
+
+type AdminUser = {
+  user_id: string;
+  display_name: string;
+  telegram_username: string | null;
+  telegram_user_id: number | null;
+  is_banned: boolean;
+  ban_reason: string | null;
+  trades_completed: number;
+  roles: string[];
+};
+
+const ALL_ROLES = ["admin","moderator","judge","finance","support"] as const;
+
+function UsersPanel() {
+  const listUsers = useServerFn(adminListUsers);
+  const ban = useServerFn(adminBanUser);
+  const unban = useServerFn(adminUnbanUser);
+  const warn = useServerFn(adminWarnUser);
+  const assign = useServerFn(adminAssignRole);
+  const revoke = useServerFn(adminRevokeRole);
+  const unlink = useServerFn(adminUnlinkTelegram);
+  const [search, setSearch] = useState("");
+  const { data, refetch } = useQuery({
+    queryKey: ["admin-users", search],
+    queryFn: () => listUsers({ data: search ? { search } : {} }),
+  });
+  const users = (data as { users: AdminUser[] } | undefined)?.users ?? [];
+
+  return (
+    <div className="surface p-5">
+      <div className="flex items-center justify-between gap-3">
+        <h2 className="font-semibold">Users</h2>
+        <div className="flex gap-2">
+          <Input placeholder="Search display name…" value={search} onChange={(e) => setSearch(e.target.value)} className="w-64" />
+          <Button variant="outline" size="sm" onClick={() => refetch()}>Refresh</Button>
+        </div>
+      </div>
+      <div className="mt-3 space-y-3">
+        {users.map((u) => (
+          <div key={u.user_id} className="rounded-md border border-border/60 p-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <div className="font-medium">{u.display_name} {u.is_banned && <Badge variant="destructive" className="ml-1">Banned</Badge>}</div>
+                <div className="text-xs text-muted-foreground font-mono">{u.user_id.slice(0,8)} · trades: {u.trades_completed} · TG: {u.telegram_username ? `@${u.telegram_username}` : "—"}</div>
+                {u.ban_reason && <div className="text-xs text-destructive mt-1">Ban reason: {u.ban_reason}</div>}
+                <div className="mt-1 flex flex-wrap gap-1">
+                  {u.roles.length === 0 && <span className="text-xs text-muted-foreground">no roles</span>}
+                  {u.roles.map((r) => (
+                    <Badge key={r} variant="secondary" className="text-xs">
+                      {r}
+                      <button className="ml-1 opacity-60 hover:opacity-100" onClick={async () => { try { await revoke({ data: { user_id: u.user_id, role: r as typeof ALL_ROLES[number] } }); toast.success("Revoked"); refetch(); } catch (e) { toast.error((e as Error).message); } }}>×</button>
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <Select onValueChange={async (v) => { try { await assign({ data: { user_id: u.user_id, role: v as typeof ALL_ROLES[number] } }); toast.success(`Assigned ${v}`); refetch(); } catch (e) { toast.error((e as Error).message); } }}>
+                  <SelectTrigger className="w-32 h-8"><SelectValue placeholder="+ Role" /></SelectTrigger>
+                  <SelectContent>
+                    {ALL_ROLES.map((r) => <SelectItem key={r} value={r}>{r}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+                {u.is_banned
+                  ? <Button size="sm" variant="outline" onClick={async () => { try { await unban({ data: { user_id: u.user_id } }); toast.success("Unbanned"); refetch(); } catch (e) { toast.error((e as Error).message); } }}>Unban</Button>
+                  : <Button size="sm" variant="destructive" onClick={async () => { const reason = window.prompt("Ban reason?"); if (!reason) return; try { await ban({ data: { user_id: u.user_id, reason } }); toast.success("Banned"); refetch(); } catch (e) { toast.error((e as Error).message); } }}>Ban</Button>}
+                <Button size="sm" variant="outline" onClick={async () => { const reason = window.prompt("Warning reason?"); if (!reason) return; const sev = window.prompt("Severity (minor|major|final)", "minor") as "minor"|"major"|"final"; try { await warn({ data: { user_id: u.user_id, reason, severity: sev || "minor" } }); toast.success("Warned"); } catch (e) { toast.error((e as Error).message); } }}>Warn</Button>
+                {u.telegram_user_id && (
+                  <Button size="sm" variant="ghost" onClick={async () => { if (!window.confirm("Unlink Telegram? User must re-run /link.")) return; try { await unlink({ data: { user_id: u.user_id } }); toast.success("Unlinked"); refetch(); } catch (e) { toast.error((e as Error).message); } }}>Unlink TG</Button>
+                )}
+              </div>
+            </div>
+          </div>
+        ))}
+        {users.length === 0 && <div className="text-sm text-muted-foreground">No users.</div>}
+      </div>
+    </div>
+  );
+}
+
+function WarningsPanel() {
+  const listW = useServerFn(adminListWarnings);
+  const { data } = useQuery({ queryKey: ["admin-warnings"], queryFn: () => listW() });
+  const warnings = (data as { warnings: Array<{ id: string; user_name: string | null; issued_by_name: string | null; reason: string; severity: string; created_at: string }> } | undefined)?.warnings ?? [];
+  return (
+    <div className="surface p-5">
+      <h2 className="font-semibold">Warnings log</h2>
+      <div className="mt-3 space-y-2">
+        {warnings.map((w) => (
+          <div key={w.id} className="rounded-md border border-border/60 p-3 text-sm">
+            <div className="flex items-center justify-between text-xs text-muted-foreground">
+              <span>{w.user_name ?? "—"} · issued by {w.issued_by_name ?? "—"} · {new Date(w.created_at).toLocaleString()}</span>
+              <Badge variant={w.severity === "final" ? "destructive" : w.severity === "major" ? "default" : "secondary"}>{w.severity}</Badge>
+            </div>
+            <p className="mt-1">{w.reason}</p>
+          </div>
+        ))}
+        {warnings.length === 0 && <div className="text-sm text-muted-foreground">No warnings issued.</div>}
       </div>
     </div>
   );

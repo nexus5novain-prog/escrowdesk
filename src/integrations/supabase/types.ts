@@ -160,6 +160,9 @@ export type Database = {
       profiles: {
         Row: {
           avatar_url: string | null
+          ban_reason: string | null
+          banned_at: string | null
+          banned_by: string | null
           bio: string | null
           created_at: string
           display_name: string
@@ -175,6 +178,9 @@ export type Database = {
         }
         Insert: {
           avatar_url?: string | null
+          ban_reason?: string | null
+          banned_at?: string | null
+          banned_by?: string | null
           bio?: string | null
           created_at?: string
           display_name: string
@@ -190,6 +196,9 @@ export type Database = {
         }
         Update: {
           avatar_url?: string | null
+          ban_reason?: string | null
+          banned_at?: string | null
+          banned_by?: string | null
           bio?: string | null
           created_at?: string
           display_name?: string
@@ -381,6 +390,36 @@ export type Database = {
         }
         Relationships: []
       }
+      user_warnings: {
+        Row: {
+          acknowledged_at: string | null
+          created_at: string
+          id: string
+          issued_by: string
+          reason: string
+          severity: string
+          user_id: string
+        }
+        Insert: {
+          acknowledged_at?: string | null
+          created_at?: string
+          id?: string
+          issued_by: string
+          reason: string
+          severity?: string
+          user_id: string
+        }
+        Update: {
+          acknowledged_at?: string | null
+          created_at?: string
+          id?: string
+          issued_by?: string
+          reason?: string
+          severity?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       wallet_transactions: {
         Row: {
           amount: number
@@ -449,6 +488,18 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      assign_role: {
+        Args: {
+          _caller: string
+          _role: Database["public"]["Enums"]["app_role"]
+          _target: string
+        }
+        Returns: undefined
+      }
+      ban_user: {
+        Args: { _caller: string; _reason: string; _target: string }
+        Returns: undefined
+      }
       cancel_trade: {
         Args: { _caller: string; _trade_id: string }
         Returns: undefined
@@ -505,6 +556,14 @@ export type Database = {
         }
         Returns: undefined
       }
+      revoke_role: {
+        Args: {
+          _caller: string
+          _role: Database["public"]["Enums"]["app_role"]
+          _target: string
+        }
+        Returns: undefined
+      }
       sign_terms: {
         Args: {
           _caller: string
@@ -523,9 +582,22 @@ export type Database = {
         }
         Returns: string
       }
+      unban_user: {
+        Args: { _caller: string; _target: string }
+        Returns: undefined
+      }
+      warn_user: {
+        Args: {
+          _caller: string
+          _reason: string
+          _severity: string
+          _target: string
+        }
+        Returns: string
+      }
     }
     Enums: {
-      app_role: "admin" | "moderator" | "user"
+      app_role: "admin" | "moderator" | "user" | "judge" | "finance" | "support"
       asset_type: "USDT" | "BTC"
       dispute_status: "open" | "resolved_buyer" | "resolved_seller"
       offer_side: "buy" | "sell"
@@ -674,7 +746,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      app_role: ["admin", "moderator", "user"],
+      app_role: ["admin", "moderator", "user", "judge", "finance", "support"],
       asset_type: ["USDT", "BTC"],
       dispute_status: ["open", "resolved_buyer", "resolved_seller"],
       offer_side: ["buy", "sell"],
