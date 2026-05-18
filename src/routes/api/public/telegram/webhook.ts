@@ -203,11 +203,11 @@ function topicsForRoles(roles: string[]): HelpTopic[] {
   });
 }
 
-function helpMenuKeyboard() {
+function helpMenuKeyboard(topics: HelpTopic[] = HELP_TOPICS) {
   const rows: { text: string; callback_data: string }[][] = [];
-  for (let i = 0; i < HELP_TOPICS.length; i += 2) {
+  for (let i = 0; i < topics.length; i += 2) {
     rows.push(
-      HELP_TOPICS.slice(i, i + 2).map((t) => ({
+      topics.slice(i, i + 2).map((t) => ({
         text: t.label,
         callback_data: `help:${t.key}`,
       })),
@@ -222,23 +222,26 @@ function helpTopicKeyboard() {
   };
 }
 
-function helpMenuText() {
-  return [
-    "<b>📖 EscrowDesk · Interactive Help</b>",
+function helpMenuText(topics: HelpTopic[] = HELP_TOPICS, roles: string[] = []) {
+  const roleBadge = roles.length ? ` <i>(roles: ${roles.join(", ")})</i>` : "";
+  const lines = [
+    `<b>📖 EscrowDesk · Interactive Help</b>${roleBadge}`,
     "",
     "Tap a command below for detailed usage and examples.",
-    "You can also type <code>/help &lt;command&gt;</code> — e.g. <code>/help release</code>.",
+    "You can also type <code>/help &lt;command&gt;</code> — e.g. <code>/help sign</code>.",
     "",
     "<b>Quick reference</b>",
-    "🚀 <code>/start</code> — welcome",
-    "🔗 <code>/link CODE</code> — link your web account",
-    "💼 <code>/balance</code> — wallet balances",
-    "📋 <code>/trades</code> — list active trades",
-    "✅ <code>/release TRADE_ID</code> — release escrow",
-    "🚩 <code>/dispute TRADE_ID reason</code> — open dispute",
-    "⚙️ <code>/fee BPS</code> — set platform fee <i>(admin)</i>",
-    "🔨 <code>/ban USER_ID</code> — ban a user <i>(admin)</i>",
-  ].join("\n");
+  ];
+  for (const t of topics) {
+    // Strip the leading emoji + key chunk from label and reuse title's first segment
+    lines.push(`${t.label}`);
+  }
+  return lines.join("\n");
+}
+
+async function getRoles(userId: string): Promise<string[]> {
+  const { data } = await supabaseAdmin.from("user_roles").select("role").eq("user_id", userId);
+  return (data ?? []).map((r) => r.role as string);
 }
 
 
