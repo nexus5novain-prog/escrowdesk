@@ -681,7 +681,7 @@ export const updateWalletAddresses = createServerFn({ method: "POST" })
     if (data.wallet_address_usdc_chain !== undefined) patch.wallet_address_usdc_chain = data.wallet_address_usdc_chain;
     if (data.wallet_address_eth !== undefined) patch.wallet_address_eth = data.wallet_address_eth || null;
     const { error } = await supabaseAdmin
-      .from("profiles").update(patch).eq("user_id", context.userId);
+      .from("profiles").update(patch as never).eq("user_id", context.userId);
     if (error) throw new Error(error.message);
     return { ok: true };
   });
