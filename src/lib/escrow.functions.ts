@@ -478,7 +478,7 @@ export const tgSetWebhook = createServerFn({ method: "POST" })
     const { createHash } = await import("crypto");
     const secret = createHash("sha256").update(`telegram-webhook:${process.env.TELEGRAM_API_KEY ?? ""}`).digest("base64url");
     const r = await tgCall("setWebhook", {
-      url: data.url, secret_token: secret, allowed_updates: ["message","edited_message"],
+      url: data.url, secret_token: secret, allowed_updates: ["message","edited_message","callback_query"],
     });
     if (!r?.ok) throw new Error(r?.description || "setWebhook failed");
     return { ok: true };
