@@ -452,7 +452,7 @@ export const adminUpdateOfferStatus = createServerFn({ method: "POST" })
 export const adminListTrades = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .inputValidator(z.object({
-    status: z.enum(["pending_payment","paid","released","cancelled","disputed"]).optional(),
+    status: z.enum(["awaiting_agreement","awaiting_seller_confirm","pending_payment","paid","released","cancelled","disputed"]).optional(),
   }).optional().transform((v) => v ?? {}))
   .handler(async ({ data, context }) => {
     await assertAdmin(context.userId);
