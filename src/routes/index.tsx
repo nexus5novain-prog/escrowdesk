@@ -4,13 +4,15 @@ import { useQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { listMarketplace, type ListingRow, type Tier } from "@/lib/marketplace.functions";
+import { createEscrowGroup } from "@/lib/escrow-groups.functions";
 import { MediatorBot } from "@/components/MediatorBot";
 import { useAuth } from "@/hooks/use-auth";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { fmtFiat } from "@/lib/format";
-import { Crown, ShieldCheck, Send, Globe, Plus, Search, Sparkles, ArrowLeftRight, Handshake } from "lucide-react";
+import { toast } from "sonner";
+import { Crown, ShieldCheck, Send, Globe, Plus, Search, Sparkles, ArrowLeftRight, Handshake, Loader2 } from "lucide-react";
 
 export const Route = createFileRoute("/")({
   head: () => ({
