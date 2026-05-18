@@ -70,37 +70,7 @@ const HELP_TOPICS: HelpTopic[] = [
       "<code>• 1a2b3c4d USDT 50 ↔ 50 EUR · funded</code>",
     ].join("\n"),
   },
-  {
-    key: "release",
-    label: "✅ /release",
-    title: "✅ <b>/release TRADE_ID</b> — Release escrow",
-    body: [
-      "Releases the escrowed crypto to the buyer. Only the seller can release.",
-      "Accepts the 8-char prefix shown in /trades or the full UUID.",
-      "",
-      "<b>Usage</b>",
-      "<code>/release TRADE_ID</code>",
-      "",
-      "<b>Examples</b>",
-      "<code>/release 1a2b3c4d</code>",
-      "<code>/release 1a2b3c4d-5e6f-7890-abcd-ef0123456789</code>",
-    ].join("\n"),
-  },
-  {
-    key: "dispute",
-    label: "🚩 /dispute",
-    title: "🚩 <b>/dispute TRADE_ID reason</b> — Open a dispute",
-    body: [
-      "Flags a trade for admin review. Reason must be at least 5 characters.",
-      "",
-      "<b>Usage</b>",
-      "<code>/dispute TRADE_ID reason text…</code>",
-      "",
-      "<b>Examples</b>",
-      "<code>/dispute 1a2b3c4d payment not received</code>",
-      "<code>/dispute 1a2b3c4d wrong amount sent</code>",
-    ].join("\n"),
-  },
+  // (release/dispute defined below with richer content)
   {
     key: "terms",
     label: "📝 /terms",
