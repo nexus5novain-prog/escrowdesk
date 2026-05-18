@@ -321,7 +321,14 @@ async function handle(update: Record<string, unknown>) {
 
   if (text.startsWith("/start")) {
     const arg = text.split(" ")[1];
-    if (arg) return handleLink(chat.id, tgId, from, arg);
+    if (arg) {
+      // Disambiguate: 6-char alnum = link code, 24-char hex = escrow group token
+      if (/^[0-9a-f]{24}$/i.test(arg)) {
+        if (!profile) return send("⚠️ Link your account first: /link CODE (from web Settings → Telegram).");
+        return handleEscrowBind(chat.id, arg, profile.user_id);
+      }
+      return handleLink(chat.id, tgId, from, arg);
+    }
     return tgCall("sendMessage", {
       chat_id: chat.id,
       text: helpMenuText(visibleTopics, roles),
