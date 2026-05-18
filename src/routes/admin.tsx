@@ -228,7 +228,14 @@ function TelegramPanel() {
 
   useEffect(() => {
     if (typeof window !== "undefined" && !url) {
-      setUrl(`${window.location.origin}/api/public/telegram/webhook`);
+      // Telegram cannot follow the id-preview auth redirect (302). Use the stable
+      // project--<id>(-dev).lovable.app host instead.
+      const host = window.location.host;
+      const m = host.match(/^id-preview--([0-9a-f-]+)\.(.+)$/i);
+      const base = m
+        ? `${window.location.protocol}//project--${m[1]}-dev.${m[2]}`
+        : window.location.origin;
+      setUrl(`${base}/api/public/telegram/webhook`);
     }
   }, [url]);
 
