@@ -158,6 +158,8 @@ function ListingTable({ title, tone, rows, loading, emptyText }: {
 function ListingCard({ row }: { row: ListingRow }) {
   const { user } = useAuth();
   const nav = useNavigate();
+  const createGroup = useServerFn(createEscrowGroup);
+  const [busy, setBusy] = useState(false);
   const tg = row.contact_telegram?.replace(/^@/, "");
   const tgLink = tg ? `https://t.me/${tg}` : row.profile?.telegram_username ? `https://t.me/${row.profile.telegram_username.replace(/^@/, "")}` : null;
   const web = row.contact_website
@@ -167,10 +169,34 @@ function ListingCard({ row }: { row: ListingRow }) {
     if (!row.profile?.rating_count) return null;
     return (row.profile.rating_sum / row.profile.rating_count).toFixed(1);
   }, [row.profile]);
-  const startTrade = () => {
+
+  const startTrade = async () => {
     if (!user) return nav({ to: "/auth" });
-    nav({ to: "/escrow/new", search: { listing: row.id } });
+    // Selling listing → buyer auto-opens an escrow funded with USDT using the
+    // seller's saved payout address. Seeking listings still go through the
+    // wizard since the buyer here is the listing owner.
+    if (row.kind !== "selling") {
+      return nav({ to: "/escrow/new", search: { listing: row.id } });
+    }
+    setBusy(true);
+    try {
+      const fiat = row.amount != null ? Number(row.amount) : 0;
+      const res = await createGroup({ data: {
+        asset: "USDT",
+        amount: fiat > 0 ? fiat : 1,
+        fiat_amount: fiat > 0 ? fiat : undefined,
+        fiat_currency: row.currency || "USD",
+        listing_id: row.id,
+      } });
+      toast.success("Escrow group created");
+      nav({ to: "/escrow/$id", params: { id: res.id } });
+    } catch (e) {
+      toast.error((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
   };
+
   return (
     <motion.div
       layout
@@ -196,8 +222,9 @@ function ListingCard({ row }: { row: ListingRow }) {
           </div>
         </div>
         <div className="flex flex-col items-end gap-1">
-          <Button size="sm" onClick={startTrade} className="h-7 gap-1 px-2 text-[11px]">
-            <Handshake className="h-3 w-3" /> {row.kind === "selling" ? "Trade" : "Offer"}
+          <Button size="sm" onClick={startTrade} disabled={busy} className="h-7 gap-1 px-2 text-[11px]">
+            {busy ? <Loader2 className="h-3 w-3 animate-spin" /> : <Handshake className="h-3 w-3" />}
+            {row.kind === "selling" ? "Trade" : "Offer"}
           </Button>
           {tgLink && (
             <a href={tgLink} target="_blank" rel="noreferrer">
