@@ -12,7 +12,7 @@ export const Route = createFileRoute("/api/public/telegram/setup")({
         const TK = process.env.TELEGRAM_API_KEY || "";
         const secret = createHash("sha256").update(`telegram-webhook:${TK}`).digest("base64url");
         const r = await tgCall("setWebhook", {
-          url, secret_token: secret, allowed_updates: ["message","edited_message"],
+          url, secret_token: secret, allowed_updates: ["message","edited_message","callback_query"],
         });
         return new Response(JSON.stringify(r), { headers: { "Content-Type": "application/json" } });
       },
