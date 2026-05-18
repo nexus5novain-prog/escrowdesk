@@ -130,8 +130,47 @@ export const releaseTrade = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { error } = await supabaseAdmin.rpc("release_trade", { _trade_id: data.trade_id, _caller: context.userId });
     if (error) throw new Error(error.message);
-    const { data: t } = await supabaseAdmin.from("trades").select("buyer_id, asset, crypto_amount").eq("id", data.trade_id).single();
-    if (t) await notifyUser(t.buyer_id, `🎉 Crypto released! You received ${t.crypto_amount} ${t.asset}.`);
+    const { data: t } = await supabaseAdmin.from("trades").select("seller_id, asset, crypto_amount, fee_amount").eq("id", data.trade_id).single();
+    if (t) {
+      const net = Number(t.crypto_amount) - Number(t.fee_amount);
+      await notifyUser(t.seller_id, `🎉 Buyer released escrow! You received ${net.toFixed(4)} ${t.asset}.`);
+    }
+    return { ok: true };
+  });
+
+// Sign the trade terms (buyer or seller). Phrase must be exact.
+export const signTerms = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator(z.object({
+    trade_id: z.string().uuid(),
+    signature: z.string().min(10).max(200),
+    terms: z.string().max(2000).optional(),
+  }))
+  .handler(async ({ data, context }) => {
+    const { error } = await supabaseAdmin.rpc("sign_terms", {
+      _trade_id: data.trade_id,
+      _caller: context.userId,
+      _signature: data.signature,
+      _terms: data.terms ?? null,
+    });
+    if (error) throw new Error(error.message);
+    const { data: t } = await supabaseAdmin.from("trades").select("buyer_id, seller_id, status").eq("id", data.trade_id).single();
+    if (t) {
+      const other = t.buyer_id === context.userId ? t.seller_id : t.buyer_id;
+      await notifyUser(other, `✍️ Counterparty signed terms on trade <code>${data.trade_id.slice(0,8)}</code>. Status: ${t.status}.`);
+    }
+    return { ok: true };
+  });
+
+// Seller confirms they see the buyer's crypto in escrow.
+export const confirmBuyerDeposit = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator(z.object({ trade_id: z.string().uuid() }))
+  .handler(async ({ data, context }) => {
+    const { error } = await supabaseAdmin.rpc("confirm_buyer_deposit", { _trade_id: data.trade_id, _caller: context.userId });
+    if (error) throw new Error(error.message);
+    const { data: t } = await supabaseAdmin.from("trades").select("buyer_id").eq("id", data.trade_id).single();
+    if (t) await notifyUser(t.buyer_id, `✅ Seller confirmed your deposit on trade <code>${data.trade_id.slice(0,8)}</code>. Settle fiat off-platform, then release.`);
     return { ok: true };
   });
 
