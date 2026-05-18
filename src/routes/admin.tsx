@@ -164,7 +164,7 @@ function TradesPanel() {
   const [status, setStatus] = useState<string>("all");
   const { data, refetch } = useQuery({
     queryKey: ["admin-trades", status],
-    queryFn: () => listT({ data: status === "all" ? {} : { status: status as "pending_payment"|"paid"|"released"|"cancelled"|"disputed" } }),
+    queryFn: () => listT({ data: status === "all" ? {} : { status: status as "awaiting_agreement"|"awaiting_seller_confirm"|"pending_payment"|"paid"|"released"|"cancelled"|"disputed" } }),
   });
   const trades = (data as { trades: Array<{ id: string; status: string; asset: string; crypto_amount: number; fiat_amount: number; fiat_currency: string; created_at: string; buyer_name: string | null; seller_name: string | null }> } | undefined)?.trades ?? [];
   return (
@@ -175,6 +175,8 @@ function TradesPanel() {
           <SelectTrigger className="w-44"><SelectValue /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All</SelectItem>
+            <SelectItem value="awaiting_agreement">Awaiting agreement</SelectItem>
+            <SelectItem value="awaiting_seller_confirm">Awaiting seller confirm</SelectItem>
             <SelectItem value="pending_payment">Pending payment</SelectItem>
             <SelectItem value="paid">Paid</SelectItem>
             <SelectItem value="disputed">Disputed</SelectItem>
@@ -199,7 +201,7 @@ function TradesPanel() {
                 <td className="text-right font-mono">{Number(t.fiat_amount).toFixed(2)} {t.fiat_currency}</td>
                 <td><Badge variant={t.status === "disputed" ? "destructive" : t.status === "released" ? "default" : "secondary"}>{t.status}</Badge></td>
                 <td className="text-right space-x-1">
-                  {["pending_payment","paid","disputed"].includes(t.status) && (
+                  {["awaiting_agreement","awaiting_seller_confirm","pending_payment","paid","disputed"].includes(t.status) && (
                     <>
                       <Button size="sm" variant="outline" onClick={async () => { try { await release({ data: { trade_id: t.id } }); toast.success("Released"); refetch(); } catch (e) { toast.error((e as Error).message); } }}>Release</Button>
                       <Button size="sm" variant="ghost" onClick={async () => { try { await cancel({ data: { trade_id: t.id } }); toast.success("Cancelled"); refetch(); } catch (e) { toast.error((e as Error).message); } }}>Cancel</Button>

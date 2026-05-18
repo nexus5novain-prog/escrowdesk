@@ -271,6 +271,7 @@ export type Database = {
           cancelled_at: string | null
           created_at: string
           crypto_amount: number
+          deposit_confirmed_at: string | null
           fee_amount: number
           fiat_amount: number
           fiat_currency: string
@@ -282,7 +283,13 @@ export type Database = {
           price: number
           released_at: string | null
           seller_id: string
+          signature_buyer: string | null
+          signature_seller: string | null
+          signed_by_buyer_at: string | null
+          signed_by_seller_at: string | null
           status: Database["public"]["Enums"]["trade_status"]
+          terms_buyer: string | null
+          terms_seller: string | null
           updated_at: string
         }
         Insert: {
@@ -291,6 +298,7 @@ export type Database = {
           cancelled_at?: string | null
           created_at?: string
           crypto_amount: number
+          deposit_confirmed_at?: string | null
           fee_amount?: number
           fiat_amount: number
           fiat_currency: string
@@ -302,7 +310,13 @@ export type Database = {
           price: number
           released_at?: string | null
           seller_id: string
+          signature_buyer?: string | null
+          signature_seller?: string | null
+          signed_by_buyer_at?: string | null
+          signed_by_seller_at?: string | null
           status?: Database["public"]["Enums"]["trade_status"]
+          terms_buyer?: string | null
+          terms_seller?: string | null
           updated_at?: string
         }
         Update: {
@@ -311,6 +325,7 @@ export type Database = {
           cancelled_at?: string | null
           created_at?: string
           crypto_amount?: number
+          deposit_confirmed_at?: string | null
           fee_amount?: number
           fiat_amount?: number
           fiat_currency?: string
@@ -322,7 +337,13 @@ export type Database = {
           price?: number
           released_at?: string | null
           seller_id?: string
+          signature_buyer?: string | null
+          signature_seller?: string | null
+          signed_by_buyer_at?: string | null
+          signed_by_seller_at?: string | null
           status?: Database["public"]["Enums"]["trade_status"]
+          terms_buyer?: string | null
+          terms_seller?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -432,6 +453,11 @@ export type Database = {
         Args: { _caller: string; _trade_id: string }
         Returns: undefined
       }
+      compute_fee_bps: { Args: { _fiat_amount: number }; Returns: number }
+      confirm_buyer_deposit: {
+        Args: { _caller: string; _trade_id: string }
+        Returns: undefined
+      }
       credit_wallet: {
         Args: {
           _amount: number
@@ -479,6 +505,15 @@ export type Database = {
         }
         Returns: undefined
       }
+      sign_terms: {
+        Args: {
+          _caller: string
+          _signature: string
+          _terms: string
+          _trade_id: string
+        }
+        Returns: undefined
+      }
       start_trade: {
         Args: {
           _buyer: string
@@ -501,6 +536,9 @@ export type Database = {
         | "released"
         | "cancelled"
         | "disputed"
+        | "awaiting_agreement"
+        | "awaiting_deposit"
+        | "awaiting_seller_confirm"
       tx_kind:
         | "deposit"
         | "withdraw"
@@ -647,6 +685,9 @@ export const Constants = {
         "released",
         "cancelled",
         "disputed",
+        "awaiting_agreement",
+        "awaiting_deposit",
+        "awaiting_seller_confirm",
       ],
       tx_kind: [
         "deposit",
