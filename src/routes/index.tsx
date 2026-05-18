@@ -85,7 +85,7 @@ function MarketplacePage() {
             label={t.label}
             subtitle={t.subtitle}
             icon={t.icon}
-            locked={t.locked}
+            emptyHint={t.emptyHint}
             selling={group?.selling ?? []}
             seeking={group?.seeking ?? []}
             loading={isLoading}
@@ -96,10 +96,11 @@ function MarketplacePage() {
   );
 }
 
-function TierSection({ label, subtitle, icon, locked, selling, seeking, loading }: {
-  label: string; subtitle: string; icon: React.ReactNode; locked?: boolean;
+function TierSection({ label, subtitle, icon, emptyHint, selling, seeking, loading }: {
+  label: string; subtitle: string; icon: React.ReactNode; emptyHint?: string;
   selling: ListingRow[]; seeking: ListingRow[]; loading?: boolean;
 }) {
+  const isEmpty = selling.length === 0 && seeking.length === 0;
   return (
     <motion.section
       initial={{ opacity: 0, y: 10 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.5 }}
