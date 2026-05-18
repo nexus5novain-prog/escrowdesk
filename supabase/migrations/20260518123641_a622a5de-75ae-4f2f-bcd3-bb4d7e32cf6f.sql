@@ -1,0 +1,3 @@
+ALTER TYPE app_role ADD VALUE IF NOT EXISTS 'judge';
+ALTER TYPE app_role ADD VALUE IF NOT EXISTS 'finance';
+ALTER TYPE app_role ADD VALUE IF NOT EXISTS 'support';

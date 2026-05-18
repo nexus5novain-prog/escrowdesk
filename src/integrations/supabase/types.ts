@@ -525,7 +525,7 @@ export type Database = {
       }
     }
     Enums: {
-      app_role: "admin" | "moderator" | "user"
+      app_role: "admin" | "moderator" | "user" | "judge" | "finance" | "support"
       asset_type: "USDT" | "BTC"
       dispute_status: "open" | "resolved_buyer" | "resolved_seller"
       offer_side: "buy" | "sell"
@@ -674,7 +674,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      app_role: ["admin", "moderator", "user"],
+      app_role: ["admin", "moderator", "user", "judge", "finance", "support"],
       asset_type: ["USDT", "BTC"],
       dispute_status: ["open", "resolved_buyer", "resolved_seller"],
       offer_side: ["buy", "sell"],
