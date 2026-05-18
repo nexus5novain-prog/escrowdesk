@@ -204,3 +204,85 @@ function TradePage() {
     </div>
   );
 }
+
+function RatingPanel({ tradeId }: { tradeId: string }) {
+  const { user } = useAuth();
+  const submit = useServerFn(submitRating);
+  const fetchRatings = useServerFn(getTradeRatings);
+  const { data, refetch } = useQuery({
+    queryKey: ["trade-ratings", tradeId],
+    queryFn: () => fetchRatings({ data: { trade_id: tradeId } }),
+  });
+  const [stars, setStars] = useState(5);
+  const [hover, setHover] = useState(0);
+  const [comment, setComment] = useState("");
+  const [busy, setBusy] = useState(false);
+  const myRating = (data?.ratings ?? []).find((r) => r.rater_id === user?.id);
+
+  const send = async () => {
+    setBusy(true);
+    try {
+      await submit({ data: { trade_id: tradeId, stars, comment: comment || undefined } });
+      toast.success("Rating submitted");
+      setComment("");
+      refetch();
+    } catch (e) { toast.error((e as Error).message); }
+    finally { setBusy(false); }
+  };
+
+  return (
+    <div className="surface p-5">
+      <div className="flex items-center justify-between">
+        <h3 className="font-semibold">Rate this trade</h3>
+        <Badge variant="outline" className="font-mono text-[10px]">{data?.ratings.length ?? 0} rating{(data?.ratings.length ?? 0) === 1 ? "" : "s"}</Badge>
+      </div>
+      <p className="mt-1 text-xs text-muted-foreground">
+        Your honest feedback helps counterparties earn Trusted and Premium badges.
+      </p>
+
+      {myRating ? (
+        <div className="mt-3 flex items-center gap-2 text-sm">
+          <span className="text-muted-foreground">You rated:</span>
+          <StarRow value={myRating.stars} />
+          {myRating.comment && <span className="text-xs italic text-muted-foreground">— {myRating.comment}</span>}
+        </div>
+      ) : (
+        <>
+          <div className="mt-3 flex items-center gap-1" onMouseLeave={() => setHover(0)}>
+            {[1,2,3,4,5].map((n) => (
+              <button key={n} type="button" onMouseEnter={() => setHover(n)} onClick={() => setStars(n)}
+                className="p-1 transition-transform hover:scale-110">
+                <Star className={`h-6 w-6 ${(hover || stars) >= n ? "fill-primary text-primary" : "text-muted-foreground"}`} />
+              </button>
+            ))}
+            <span className="ml-2 font-mono text-xs text-muted-foreground">{stars}/5</span>
+          </div>
+          <Textarea value={comment} onChange={(e) => setComment(e.target.value)} placeholder="Optional public comment…" maxLength={500} rows={2} className="mt-3" />
+          <div className="mt-3 flex justify-end">
+            <Button size="sm" disabled={busy} onClick={send}>{busy ? "Submitting…" : "Submit rating"}</Button>
+          </div>
+        </>
+      )}
+
+      {(data?.ratings ?? []).filter((r) => r.rater_id !== user?.id).map((r) => (
+        <div key={r.id} className="mt-3 border-t border-border/40 pt-3 text-sm">
+          <div className="flex items-center justify-between">
+            <StarRow value={r.stars} />
+            <span className="text-[10px] text-muted-foreground">{new Date(r.created_at).toLocaleDateString()}</span>
+          </div>
+          {r.comment && <p className="mt-1 text-xs text-muted-foreground">{r.comment}</p>}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function StarRow({ value }: { value: number }) {
+  return (
+    <div className="flex items-center gap-0.5">
+      {[1,2,3,4,5].map((n) => (
+        <Star key={n} className={`h-4 w-4 ${n <= value ? "fill-primary text-primary" : "text-muted-foreground/40"}`} />
+      ))}
+    </div>
+  );
+}
