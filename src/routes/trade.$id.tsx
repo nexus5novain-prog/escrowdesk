@@ -5,8 +5,9 @@ import { useQuery } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import {
   getTrade, markPaid, releaseTrade, cancelTrade, openDispute, sendMessage,
-  signTerms, confirmBuyerDeposit,
+  signTerms, confirmBuyerDeposit, submitRating, getTradeRatings,
 } from "@/lib/escrow.functions";
+import { Star } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
