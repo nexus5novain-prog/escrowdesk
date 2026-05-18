@@ -277,6 +277,40 @@ async function handle(update: Record<string, unknown>) {
     if (!t?.length) return send("No active trades.");
     return send("📋 <b>Active trades</b>\n" + t.map((x) => `• <code>${x.id.slice(0,8)}</code> ${x.asset} ${x.crypto_amount} ↔ ${x.fiat_amount} ${x.fiat_currency} · ${x.status}`).join("\n"));
   }
+  if (text.startsWith("/terms")) {
+    // /terms TRADE_ID my terms text...
+    const parts = text.split(" ");
+    const idArg = parts[1];
+    const termsText = parts.slice(2).join(" ").trim();
+    if (!idArg || !termsText) return send("Usage: <code>/terms TRADE_ID your terms text</code>");
+    const full = await resolveTradeId(idArg, profile.user_id);
+    if (!full) return send("Trade not found.");
+    const { data: tr } = await supabaseAdmin.from("trades").select("buyer_id, seller_id").eq("id", full).maybeSingle();
+    if (!tr) return send("Trade not found.");
+    const col = tr.buyer_id === profile.user_id ? "terms_buyer" : tr.seller_id === profile.user_id ? "terms_seller" : null;
+    if (!col) return send("You are not a party to this trade.");
+    const { error } = await supabaseAdmin.from("trades").update({ [col]: termsText }).eq("id", full);
+    return send(error ? `❌ ${error.message}` : `📝 Terms saved for trade <code>${full.slice(0,8)}</code>. Counterparty can read them with /trade ${full.slice(0,8)}, then sign with /sign.`);
+  }
+  if (text.startsWith("/sign")) {
+    // /sign TRADE_ID I AGREE TO TERMS AND CONDITIONS OF THE SELLER
+    const parts = text.split(" ");
+    const idArg = parts[1];
+    const phrase = parts.slice(2).join(" ").trim();
+    if (!idArg || !phrase) return send("Usage:\n<code>/sign TRADE_ID I AGREE TO TERMS AND CONDITIONS OF THE SELLER</code> (if you're the buyer)\n<code>/sign TRADE_ID I AGREE TO TERMS AND CONDITIONS OF THE BUYER</code> (if you're the seller)");
+    const full = await resolveTradeId(idArg, profile.user_id);
+    if (!full) return send("Trade not found.");
+    const { error } = await supabaseAdmin.rpc("sign_terms", { _trade_id: full, _caller: profile.user_id, _signature: phrase, _terms: null });
+    return send(error ? `❌ ${error.message}` : `✍️ Signed trade <code>${full.slice(0,8)}</code>.`);
+  }
+  if (text.startsWith("/confirm")) {
+    const idArg = text.split(" ")[1];
+    if (!idArg) return send("Usage: <code>/confirm TRADE_ID</code> (seller confirms buyer's escrow deposit)");
+    const full = await resolveTradeId(idArg, profile.user_id);
+    if (!full) return send("Trade not found.");
+    const { error } = await supabaseAdmin.rpc("confirm_buyer_deposit", { _trade_id: full, _caller: profile.user_id });
+    return send(error ? `❌ ${error.message}` : `✅ Deposit confirmed on trade <code>${full.slice(0,8)}</code>. Buyer can now release.`);
+  }
   if (text.startsWith("/release")) {
     const id = text.split(" ")[1]?.trim();
     if (!id) return send("Usage: /release TRADE_ID");
