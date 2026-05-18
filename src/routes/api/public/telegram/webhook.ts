@@ -181,7 +181,39 @@ function safeEq(a: string, b: string) {
   return A.length === B.length && timingSafeEqual(A, B);
 }
 
+async function handleCallback(cb: Record<string, unknown>) {
+  const id = cb.id as string;
+  const data = (cb.data as string | undefined) ?? "";
+  const msg = cb.message as { chat: { id: number }; message_id: number } | undefined;
+  await tgCall("answerCallbackQuery", { callback_query_id: id });
+  if (!msg) return;
+  if (data === "help:menu") {
+    return tgCall("editMessageText", {
+      chat_id: msg.chat.id,
+      message_id: msg.message_id,
+      text: helpMenuText(),
+      parse_mode: "HTML",
+      reply_markup: helpMenuKeyboard(),
+    });
+  }
+  if (data.startsWith("help:")) {
+    const key = data.slice(5);
+    const topic = HELP_TOPICS.find((t) => t.key === key);
+    if (!topic) return;
+    return tgCall("editMessageText", {
+      chat_id: msg.chat.id,
+      message_id: msg.message_id,
+      text: `${topic.title}\n\n${topic.body}`,
+      parse_mode: "HTML",
+      reply_markup: helpTopicKeyboard(),
+    });
+  }
+}
+
 async function handle(update: Record<string, unknown>) {
+  if (update.callback_query) {
+    return handleCallback(update.callback_query as Record<string, unknown>);
+  }
   const message = (update.message ?? update.edited_message) as Record<string, unknown> | undefined;
   if (!message) return;
   const chat = message.chat as { id: number };
