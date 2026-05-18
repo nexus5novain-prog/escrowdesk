@@ -494,6 +494,24 @@ export const getMe = createServerFn({ method: "GET" })
     };
   });
 
+export const updateMyProfile = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator(z.object({
+    display_name: z.string().min(1).max(80).optional(),
+    bio: z.string().max(500).optional(),
+    avatar_url: z.string().url().max(1024).nullable().optional(),
+  }))
+  .handler(async ({ data, context }) => {
+    const patch: { display_name?: string; bio?: string | null; avatar_url?: string | null } = {};
+    if (data.display_name !== undefined) patch.display_name = data.display_name;
+    if (data.bio !== undefined) patch.bio = data.bio;
+    if (data.avatar_url !== undefined) patch.avatar_url = data.avatar_url;
+    if (Object.keys(patch).length === 0) return { ok: true };
+    const { error } = await supabaseAdmin.from("profiles").update(patch).eq("user_id", context.userId);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
 export const getMyTrades = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
