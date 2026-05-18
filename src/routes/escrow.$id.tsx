@@ -159,8 +159,31 @@ function EscrowGroupPage() {
 
         <StatusTimeline status={g.status} />
 
-        {/* Buyer: submit tx hash */}
-        {isBuyer && g.escrow_address && !g.deposit_tx_hash && (
+        {/* Pending invite — for the invited counterparty (seller or moderator) */}
+        {iAmPendingInvitee && (
+          <div className="surface border-primary/40 p-5 space-y-3">
+            <div className="flex items-center gap-2 font-semibold text-primary">
+              <ShieldAlert className="h-4 w-4" /> You've been invited to this escrow
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Accept to join the chat, see the escrow address, and verify the buyer's deposit. Decline to refuse and cancel the group.
+            </p>
+            <div className="flex gap-2">
+              <Button onClick={() => act(() => accept({ data: { group_id: g.id } }), "Invite accepted")}>Accept invite</Button>
+              <Button variant="ghost" onClick={() => act(() => decline({ data: { group_id: g.id } }), "Invite declined")}>Decline</Button>
+            </div>
+          </div>
+        )}
+
+        {/* Buyer waiting on seller */}
+        {isBuyer && sellerPending && (
+          <div className="surface p-5 text-sm text-muted-foreground">
+            ⏳ Waiting for <b className="text-foreground">{data.members.find((m) => m.role === "seller")?.profile?.display_name ?? "the seller"}</b> to accept the invite. They've been notified on Telegram (if linked).
+          </div>
+        )}
+
+        {/* Buyer: submit tx hash — only after seller accepted */}
+        {isBuyer && !sellerPending && g.escrow_address && !g.deposit_tx_hash && g.status !== "cancelled" && (
           <div className="surface p-5 space-y-3">
             <div className="flex items-center gap-2 font-semibold"><Hash className="h-4 w-4" /> Submit deposit transaction hash</div>
             <p className="text-xs text-muted-foreground">
@@ -174,14 +197,29 @@ function EscrowGroupPage() {
           </div>
         )}
 
-        {/* Seller: release */}
-        {isSeller && g.status === "funded" && (
-          <div className="surface p-5 space-y-2">
-            <div className="flex items-center gap-2 font-semibold text-emerald-400"><CheckCircle2 className="h-4 w-4" /> Confirm & release</div>
-            <p className="text-xs text-muted-foreground">Verify the buyer's tx hash on-chain before releasing.</p>
-            <Button onClick={() => act(() => release({ data: { group_id: g.id } }), "Released")}>Release escrow to buyer</Button>
+        {/* Seller: verify deposit then release */}
+        {isSeller && !iAmPendingInvitee && g.status === "funded" && (
+          <div className="surface p-5 space-y-3">
+            <div className="flex items-center gap-2 font-semibold text-emerald-400"><CheckCircle2 className="h-4 w-4" /> Verify deposit & release</div>
+            <p className="text-xs text-muted-foreground">
+              Buyer submitted tx <code className="font-mono">{g.deposit_tx_hash}</code>. Check the {g.escrow_address_chain ?? g.asset} chain to confirm{" "}
+              {g.amount} {g.asset} arrived at <code className="font-mono">{g.escrow_address}</code>.
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {!g.deposit_verified_at ? (
+                <Button variant="outline" onClick={() => act(() => verify({ data: { group_id: g.id } }), "Deposit marked verified")}>
+                  Mark deposit verified
+                </Button>
+              ) : (
+                <Badge className="bg-emerald-500/15 text-emerald-300">Deposit verified on-chain</Badge>
+              )}
+              <Button disabled={!g.deposit_verified_at} onClick={() => act(() => release({ data: { group_id: g.id } }), "Released")}>
+                Release escrow to buyer
+              </Button>
+            </div>
           </div>
         )}
+
 
         {/* Actions */}
         <div className="surface p-5">
