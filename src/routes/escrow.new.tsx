@@ -122,7 +122,7 @@ function NewEscrow() {
         </div>
 
         <Button onClick={submit} disabled={busy} className="w-full">
-          <Send className="mr-2 h-4 w-4" /> {busy ? "Creating…" : "Create group & invite seller"}
+          <Send className="mr-2 h-4 w-4" /> {busy ? "Creating…" : listing ? "Create escrow group" : "Create group & invite seller"}
         </Button>
       </div>
     </div>
