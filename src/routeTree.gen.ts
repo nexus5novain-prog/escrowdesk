@@ -13,6 +13,8 @@ import { Route as WalletRouteImport } from './routes/wallet'
 import { Route as TradesRouteImport } from './routes/trades'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as PostOfferRouteImport } from './routes/post-offer'
+import { Route as PostListingRouteImport } from './routes/post-listing'
+import { Route as MarketplaceRouteImport } from './routes/marketplace'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AdminRouteImport } from './routes/admin'
 import { Route as IndexRouteImport } from './routes/index'
@@ -39,6 +41,16 @@ const SettingsRoute = SettingsRouteImport.update({
 const PostOfferRoute = PostOfferRouteImport.update({
   id: '/post-offer',
   path: '/post-offer',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PostListingRoute = PostListingRouteImport.update({
+  id: '/post-listing',
+  path: '/post-listing',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const MarketplaceRoute = MarketplaceRouteImport.update({
+  id: '/marketplace',
+  path: '/marketplace',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthRoute = AuthRouteImport.update({
@@ -82,6 +94,8 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/admin': typeof AdminRoute
   '/auth': typeof AuthRoute
+  '/marketplace': typeof MarketplaceRoute
+  '/post-listing': typeof PostListingRoute
   '/post-offer': typeof PostOfferRoute
   '/settings': typeof SettingsRoute
   '/trades': typeof TradesRoute
@@ -95,6 +109,8 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/admin': typeof AdminRoute
   '/auth': typeof AuthRoute
+  '/marketplace': typeof MarketplaceRoute
+  '/post-listing': typeof PostListingRoute
   '/post-offer': typeof PostOfferRoute
   '/settings': typeof SettingsRoute
   '/trades': typeof TradesRoute
@@ -109,6 +125,8 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/admin': typeof AdminRoute
   '/auth': typeof AuthRoute
+  '/marketplace': typeof MarketplaceRoute
+  '/post-listing': typeof PostListingRoute
   '/post-offer': typeof PostOfferRoute
   '/settings': typeof SettingsRoute
   '/trades': typeof TradesRoute
@@ -124,6 +142,8 @@ export interface FileRouteTypes {
     | '/'
     | '/admin'
     | '/auth'
+    | '/marketplace'
+    | '/post-listing'
     | '/post-offer'
     | '/settings'
     | '/trades'
@@ -137,6 +157,8 @@ export interface FileRouteTypes {
     | '/'
     | '/admin'
     | '/auth'
+    | '/marketplace'
+    | '/post-listing'
     | '/post-offer'
     | '/settings'
     | '/trades'
@@ -150,6 +172,8 @@ export interface FileRouteTypes {
     | '/'
     | '/admin'
     | '/auth'
+    | '/marketplace'
+    | '/post-listing'
     | '/post-offer'
     | '/settings'
     | '/trades'
@@ -164,6 +188,8 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AdminRoute: typeof AdminRoute
   AuthRoute: typeof AuthRoute
+  MarketplaceRoute: typeof MarketplaceRoute
+  PostListingRoute: typeof PostListingRoute
   PostOfferRoute: typeof PostOfferRoute
   SettingsRoute: typeof SettingsRoute
   TradesRoute: typeof TradesRoute
@@ -202,6 +228,20 @@ declare module '@tanstack/react-router' {
       path: '/post-offer'
       fullPath: '/post-offer'
       preLoaderRoute: typeof PostOfferRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/post-listing': {
+      id: '/post-listing'
+      path: '/post-listing'
+      fullPath: '/post-listing'
+      preLoaderRoute: typeof PostListingRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/marketplace': {
+      id: '/marketplace'
+      path: '/marketplace'
+      fullPath: '/marketplace'
+      preLoaderRoute: typeof MarketplaceRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/auth': {
@@ -260,6 +300,8 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AdminRoute: AdminRoute,
   AuthRoute: AuthRoute,
+  MarketplaceRoute: MarketplaceRoute,
+  PostListingRoute: PostListingRoute,
   PostOfferRoute: PostOfferRoute,
   SettingsRoute: SettingsRoute,
   TradesRoute: TradesRoute,
