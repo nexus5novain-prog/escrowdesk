@@ -301,7 +301,7 @@ async function handle(update: Record<string, unknown>) {
     if (!idArg || !phrase) return send("Usage:\n<code>/sign TRADE_ID I AGREE TO TERMS AND CONDITIONS OF THE SELLER</code> (if you're the buyer)\n<code>/sign TRADE_ID I AGREE TO TERMS AND CONDITIONS OF THE BUYER</code> (if you're the seller)");
     const full = await resolveTradeId(idArg, profile.user_id);
     if (!full) return send("Trade not found.");
-    const { error } = await supabaseAdmin.rpc("sign_terms", { _trade_id: full, _caller: profile.user_id, _signature: phrase, _terms: null });
+    const { error } = await supabaseAdmin.rpc("sign_terms", { _trade_id: full, _caller: profile.user_id, _signature: phrase, _terms: null as unknown as string });
     return send(error ? `❌ ${error.message}` : `✍️ Signed trade <code>${full.slice(0,8)}</code>.`);
   }
   if (text.startsWith("/confirm")) {
