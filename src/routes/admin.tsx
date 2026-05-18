@@ -12,6 +12,7 @@ import {
   adminAssignRole, adminRevokeRole, adminUnlinkTelegram, adminListWarnings,
 } from "@/lib/escrow.functions";
 import { Button } from "@/components/ui/button";
+import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -346,6 +347,17 @@ function UsersPanel() {
     queryFn: () => listUsers({ data: search ? { search } : {} }),
   });
   const users = (data as { users: AdminUser[] } | undefined)?.users ?? [];
+
+  // Live updates: refetch whenever a profile or role changes anywhere
+  useEffect(() => {
+    const channel = supabase
+      .channel("admin-users-live")
+      .on("postgres_changes", { event: "*", schema: "public", table: "user_roles" }, () => refetch())
+      .on("postgres_changes", { event: "*", schema: "public", table: "profiles" }, () => refetch())
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [refetch]);
+
 
   return (
     <div className="surface p-5">

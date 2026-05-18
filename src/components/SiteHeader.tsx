@@ -2,19 +2,31 @@ import { Link } from "@tanstack/react-router";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { ShieldCheck } from "lucide-react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { getMyRoles } from "@/lib/escrow.functions";
+import { useEffect } from "react";
+import { supabase } from "@/integrations/supabase/client";
 
 export function SiteHeader() {
   const { user, signOut } = useAuth();
   const fetchRoles = useServerFn(getMyRoles);
+  const qc = useQueryClient();
   const { data: rolesData } = useQuery({
     queryKey: ["my-roles", user?.id],
     queryFn: () => fetchRoles(),
     enabled: !!user,
     staleTime: 60_000,
   });
+  useEffect(() => {
+    if (!user) return;
+    const channel = supabase
+      .channel(`header-roles-${user.id}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "user_roles", filter: `user_id=eq.${user.id}` },
+        () => qc.invalidateQueries({ queryKey: ["my-roles", user.id] }))
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [user, qc]);
   const isStaff = (rolesData?.roles ?? []).some((r) => r === "admin" || r === "moderator");
   return (
     <header className="sticky top-0 z-30 border-b border-border/60 bg-background/70 backdrop-blur-xl">

@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { AuthGate } from "@/components/AuthGate";
 import { useServerFn } from "@tanstack/react-start";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { getMe, updateWalletAddresses, getBadgeProgress, getWalletPnL } from "@/lib/escrow.functions";
 import { Button } from "@/components/ui/button";
@@ -13,6 +13,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { ShieldCheck, Crown, Wallet as WalletIcon, Bitcoin, CircleDollarSign, ArrowDownRight, ArrowUpRight, TrendingUp } from "lucide-react";
 import { toast } from "sonner";
 import { fmtCrypto, fmtFiat } from "@/lib/format";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/use-auth";
 
 export const Route = createFileRoute("/wallet")({ component: () => (<AuthGate><Wallet /></AuthGate>) });
 
@@ -31,6 +33,21 @@ function Wallet() {
   const { data, refetch } = useQuery({ queryKey: ["me"], queryFn: () => fetchMe() });
   const { data: badges } = useQuery({ queryKey: ["badges"], queryFn: () => fetchBadges() });
   const { data: pnl } = useQuery({ queryKey: ["pnl"], queryFn: () => fetchPnL() });
+  const qc = useQueryClient();
+  const { user } = useAuth();
+
+  // Live updates: when this user's profile or roles change, refresh badges + me
+  useEffect(() => {
+    if (!user) return;
+    const channel = supabase
+      .channel(`wallet-live-${user.id}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "profiles", filter: `user_id=eq.${user.id}` },
+        () => { qc.invalidateQueries({ queryKey: ["badges"] }); qc.invalidateQueries({ queryKey: ["me"] }); })
+      .on("postgres_changes", { event: "*", schema: "public", table: "user_roles", filter: `user_id=eq.${user.id}` },
+        () => { qc.invalidateQueries({ queryKey: ["badges"] }); qc.invalidateQueries({ queryKey: ["my-roles", user.id] }); qc.invalidateQueries({ queryKey: ["me"] }); })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [user, qc]);
 
   const [btc, setBtc] = useState("");
   const [usdt, setUsdt] = useState("");
