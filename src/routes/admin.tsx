@@ -201,7 +201,7 @@ function TradesPanel() {
                 <td className="text-right font-mono">{Number(t.fiat_amount).toFixed(2)} {t.fiat_currency}</td>
                 <td><Badge variant={t.status === "disputed" ? "destructive" : t.status === "released" ? "default" : "secondary"}>{t.status}</Badge></td>
                 <td className="text-right space-x-1">
-                  {["pending_payment","paid","disputed"].includes(t.status) && (
+                  {["awaiting_agreement","awaiting_seller_confirm","pending_payment","paid","disputed"].includes(t.status) && (
                     <>
                       <Button size="sm" variant="outline" onClick={async () => { try { await release({ data: { trade_id: t.id } }); toast.success("Released"); refetch(); } catch (e) { toast.error((e as Error).message); } }}>Release</Button>
                       <Button size="sm" variant="ghost" onClick={async () => { try { await cancel({ data: { trade_id: t.id } }); toast.success("Cancelled"); refetch(); } catch (e) { toast.error((e as Error).message); } }}>Cancel</Button>
