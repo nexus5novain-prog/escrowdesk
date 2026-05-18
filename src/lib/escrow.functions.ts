@@ -671,7 +671,7 @@ export const updateWalletAddresses = createServerFn({ method: "POST" })
     }),
   )
   .handler(async ({ data, context }) => {
-    const patch: Record<string, string | null> = {};
+    const patch: { wallet_address_btc?: string | null; wallet_address_usdt?: string | null } = {};
     if (data.wallet_address_btc !== undefined)
       patch.wallet_address_btc = data.wallet_address_btc || null;
     if (data.wallet_address_usdt !== undefined)
