@@ -114,30 +114,22 @@ function TierSection({ label, subtitle, icon, emptyHint, selling, seeking, loadi
             <p className="text-xs text-muted-foreground">{subtitle}</p>
           </div>
         </div>
-        {locked && <Badge variant="outline" className="font-mono text-[10px] uppercase">Coming soon</Badge>}
       </header>
 
-      {locked ? (
-        <ComingSoon />
-      ) : (
-        <div className="grid gap-4 md:grid-cols-2">
-          <ListingTable title="Selling" tone="primary" rows={selling} loading={loading} emptyText="No active selling listings." />
-          <ListingTable title="Seeking" tone="accent" rows={seeking} loading={loading} emptyText="No active seeking listings." />
-        </div>
+      <div className="grid gap-4 md:grid-cols-2">
+        <ListingTable title="Selling" tone="primary" rows={selling} loading={loading} emptyText="No active selling listings." />
+        <ListingTable title="Seeking" tone="accent" rows={seeking} loading={loading} emptyText="No active seeking listings." />
+      </div>
+
+      {isEmpty && emptyHint && !loading && (
+        <p className="mt-3 rounded-md border border-dashed border-border/60 bg-secondary/20 px-3 py-2 text-center text-[11px] text-muted-foreground">
+          {emptyHint}
+        </p>
       )}
     </motion.section>
   );
 }
 
-function ComingSoon() {
-  return (
-    <div className="grid place-items-center rounded-lg border border-dashed border-border/60 bg-secondary/20 p-10 text-center">
-      <motion.div animate={{ rotate: [0, 8, -8, 0] }} transition={{ duration: 3, repeat: Infinity }} className="text-3xl">👑</motion.div>
-      <p className="mt-2 text-sm font-medium">Premium tier launches soon</p>
-      <p className="text-xs text-muted-foreground">Verified merchants will show here with priority placement.</p>
-    </div>
-  );
-}
 
 function ListingTable({ title, tone, rows, loading, emptyText }: {
   title: string; tone: "primary" | "accent"; rows: ListingRow[]; loading?: boolean; emptyText: string;
