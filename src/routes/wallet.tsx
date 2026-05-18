@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { AuthGate } from "@/components/AuthGate";
 import { useServerFn } from "@tanstack/react-start";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { getMe, updateWalletAddresses, getBadgeProgress, getWalletPnL } from "@/lib/escrow.functions";
 import { Button } from "@/components/ui/button";
@@ -13,6 +13,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { ShieldCheck, Crown, Wallet as WalletIcon, Bitcoin, CircleDollarSign, ArrowDownRight, ArrowUpRight, TrendingUp } from "lucide-react";
 import { toast } from "sonner";
 import { fmtCrypto, fmtFiat } from "@/lib/format";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/use-auth";
 
 export const Route = createFileRoute("/wallet")({ component: () => (<AuthGate><Wallet /></AuthGate>) });
 
