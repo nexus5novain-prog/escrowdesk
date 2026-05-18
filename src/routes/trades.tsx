@@ -130,7 +130,7 @@ function Trades() {
           })}
           {active.length === 0 && (
             <div className="p-10 text-center text-sm text-muted-foreground">
-              No active trades. <Link to="/" className="text-primary underline">Browse the marketplace</Link> or <Link to="/escrow/new" className="text-primary underline">start a manual escrow</Link>.
+              No active trades. <Link to="/marketplace" className="text-primary underline">Browse the marketplace</Link> or <Link to="/escrow/new" className="text-primary underline">start a manual escrow</Link>.
             </div>
           )}
         </div>
