@@ -347,6 +347,17 @@ function UsersPanel() {
   });
   const users = (data as { users: AdminUser[] } | undefined)?.users ?? [];
 
+  // Live updates: refetch whenever a profile or role changes anywhere
+  useEffect(() => {
+    const channel = supabase
+      .channel("admin-users-live")
+      .on("postgres_changes", { event: "*", schema: "public", table: "user_roles" }, () => refetch())
+      .on("postgres_changes", { event: "*", schema: "public", table: "profiles" }, () => refetch())
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [refetch]);
+
+
   return (
     <div className="surface p-5">
       <div className="flex items-center justify-between gap-3">
