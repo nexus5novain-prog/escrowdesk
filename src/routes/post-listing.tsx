@@ -23,6 +23,8 @@ type Kind = "selling" | "seeking";
 function Page() {
   const nav = useNavigate();
   const fn = useServerFn(createListing);
+  const fetchMe = useServerFn(getMe);
+  const { data: me } = useQuery({ queryKey: ["me"], queryFn: () => fetchMe() });
   const [step, setStep] = useState<1 | 2>(1);
   const [kind, setKind] = useState<Kind | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -30,6 +32,13 @@ function Page() {
     name: "", description: "", category: "", amount: "", currency: "USD",
     contact_telegram: "", contact_website: "",
   });
+
+  // Prefill telegram from the linked profile
+  useEffect(() => {
+    const tg = (me?.profile as { telegram_username?: string | null } | undefined)?.telegram_username;
+    if (tg && !f.contact_telegram) setF((x) => ({ ...x, contact_telegram: tg.startsWith("@") ? tg : `@${tg}` }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [me?.profile]);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
