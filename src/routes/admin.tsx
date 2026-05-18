@@ -164,7 +164,7 @@ function TradesPanel() {
   const [status, setStatus] = useState<string>("all");
   const { data, refetch } = useQuery({
     queryKey: ["admin-trades", status],
-    queryFn: () => listT({ data: status === "all" ? {} : { status: status as "pending_payment"|"paid"|"released"|"cancelled"|"disputed" } }),
+    queryFn: () => listT({ data: status === "all" ? {} : { status: status as "awaiting_agreement"|"awaiting_seller_confirm"|"pending_payment"|"paid"|"released"|"cancelled"|"disputed" } }),
   });
   const trades = (data as { trades: Array<{ id: string; status: string; asset: string; crypto_amount: number; fiat_amount: number; fiat_currency: string; created_at: string; buyer_name: string | null; seller_name: string | null }> } | undefined)?.trades ?? [];
   return (
