@@ -289,7 +289,8 @@ async function handle(update: Record<string, unknown>) {
     if (!tr) return send("Trade not found.");
     const col = tr.buyer_id === profile.user_id ? "terms_buyer" : tr.seller_id === profile.user_id ? "terms_seller" : null;
     if (!col) return send("You are not a party to this trade.");
-    const { error } = await supabaseAdmin.from("trades").update({ [col]: termsText }).eq("id", full);
+    const patch = (col === "terms_buyer" ? { terms_buyer: termsText } : { terms_seller: termsText });
+    const { error } = await supabaseAdmin.from("trades").update(patch).eq("id", full);
     return send(error ? `❌ ${error.message}` : `📝 Terms saved for trade <code>${full.slice(0,8)}</code>. Counterparty can read them with /trade ${full.slice(0,8)}, then sign with /sign.`);
   }
   if (text.startsWith("/sign")) {
