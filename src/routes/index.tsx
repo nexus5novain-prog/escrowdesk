@@ -33,9 +33,9 @@ function MarketplacePage() {
     refetchInterval: 20_000,
   });
 
-  const tiers: { key: Tier; label: string; icon: React.ReactNode; subtitle: string; locked?: boolean }[] = [
-    { key: "premium", label: "Premium members", icon: <Crown className="h-4 w-4" />, subtitle: "Coming soon — top-tier verified merchants.", locked: true },
-    { key: "trusted", label: "Trusted & vouched", icon: <ShieldCheck className="h-4 w-4" />, subtitle: "Members with a trusted badge & community vouch." },
+  const tiers: { key: Tier; label: string; icon: React.ReactNode; subtitle: string; emptyHint?: string }[] = [
+    { key: "premium", label: "Premium members", icon: <Crown className="h-4 w-4" />, subtitle: "Top-tier merchants: Trusted + 25 trades, 15 five-star ratings, $5,000 BTC traded.", emptyHint: "No Premium members yet. Reach the milestones from your Wallet page to unlock this tier." },
+    { key: "trusted", label: "Trusted & vouched", icon: <ShieldCheck className="h-4 w-4" />, subtitle: "Earn the Trusted badge: 5 successful trades, 5 different 4★+ raters, 3 trades with one partner, $500 BTC traded.", emptyHint: "No Trusted members yet — be the first to complete the journey." },
     { key: "regular", label: "Regular members", icon: <Sparkles className="h-4 w-4" />, subtitle: "New & standard sellers and seekers." },
   ];
 
