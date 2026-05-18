@@ -89,10 +89,12 @@ export const createListing = createServerFn({ method: "POST" })
     const { userId } = context;
     const { data: prof } = await supabaseAdmin
       .from("profiles")
-      .select("is_banned")
+      .select("is_banned, telegram_username")
       .eq("user_id", userId)
       .maybeSingle();
     if (prof?.is_banned) throw new Error("Account is banned");
+    // Auto-assign the linked Telegram username unless user explicitly overrode it
+    const tg = (data.contact_telegram?.trim() || prof?.telegram_username || "").replace(/^@/, "");
     const { data: row, error } = await supabaseAdmin
       .from("listings")
       .insert({
@@ -103,7 +105,7 @@ export const createListing = createServerFn({ method: "POST" })
         category: data.category,
         amount: data.kind === "selling" ? data.amount ?? null : null,
         currency: data.currency ?? "USD",
-        contact_telegram: data.contact_telegram || null,
+        contact_telegram: tg || null,
         contact_website: data.contact_website || null,
       })
       .select("id")
