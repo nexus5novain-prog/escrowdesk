@@ -45,7 +45,7 @@ function Page() {
         contact_website: f.contact_website || undefined,
       }});
       toast.success("Listing published");
-      nav({ to: "/marketplace" });
+      nav({ to: "/" });
     } catch (err) {
       toast.error((err as Error).message);
     } finally {
@@ -56,7 +56,7 @@ function Page() {
   return (
     <div className="mx-auto max-w-2xl space-y-4">
       <div className="flex items-center justify-between">
-        <Link to="/marketplace" className="text-xs text-muted-foreground hover:text-foreground">← Back to marketplace</Link>
+        <Link to="/" className="text-xs text-muted-foreground hover:text-foreground">← Back to marketplace</Link>
         <Badge variant="outline" className="font-mono text-[10px]">Step {step} of 2</Badge>
       </div>
 
