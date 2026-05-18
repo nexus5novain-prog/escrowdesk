@@ -151,7 +151,7 @@ export const signTerms = createServerFn({ method: "POST" })
       _trade_id: data.trade_id,
       _caller: context.userId,
       _signature: data.signature,
-      _terms: data.terms ?? null,
+      _terms: (data.terms ?? null) as string,
     });
     if (error) throw new Error(error.message);
     const { data: t } = await supabaseAdmin.from("trades").select("buyer_id, seller_id, status").eq("id", data.trade_id).single();
