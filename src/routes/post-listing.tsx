@@ -1,9 +1,11 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { AuthGate } from "@/components/AuthGate";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useServerFn } from "@tanstack/react-start";
+import { useQuery } from "@tanstack/react-query";
 import { createListing } from "@/lib/marketplace.functions";
+import { getMe } from "@/lib/escrow.functions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
