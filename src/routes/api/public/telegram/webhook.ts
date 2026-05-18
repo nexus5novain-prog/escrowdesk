@@ -1,7 +1,176 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { createHash, timingSafeEqual } from "crypto";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
-import { tgSendMessage } from "@/lib/telegram.server";
+import { tgCall, tgSendMessage } from "@/lib/telegram.server";
+
+type HelpTopic = {
+  key: string;
+  label: string;
+  title: string;
+  body: string;
+};
+
+const HELP_TOPICS: HelpTopic[] = [
+  {
+    key: "start",
+    label: "🚀 /start",
+    title: "🚀 <b>/start</b> — Welcome &amp; quick start",
+    body: [
+      "Greets you and shows the main command list.",
+      "Also used to link your account when followed by a code:",
+      "",
+      "<b>Usage</b>",
+      "<code>/start</code>",
+      "<code>/start AB12CD</code>   ← links via deep-link code",
+    ].join("\n"),
+  },
+  {
+    key: "link",
+    label: "🔗 /link",
+    title: "🔗 <b>/link CODE</b> — Link your web account",
+    body: [
+      "Connects this Telegram account to your EscrowDesk web profile.",
+      "Generate a code in the web app: <i>Settings → Telegram → Generate code</i>.",
+      "",
+      "<b>Usage</b>",
+      "<code>/link AB12CD</code>",
+      "",
+      "<b>Notes</b>",
+      "• Codes expire after a few minutes",
+      "• Each code can only be used once",
+    ].join("\n"),
+  },
+  {
+    key: "balance",
+    label: "💼 /balance",
+    title: "💼 <b>/balance</b> — Show wallet balances",
+    body: [
+      "Displays every asset wallet you own, with available and in-escrow amounts.",
+      "",
+      "<b>Usage</b>",
+      "<code>/balance</code>",
+      "",
+      "<b>Example output</b>",
+      "<code>USDT: 100.0000 (escrow 25.0000)</code>",
+      "<code>BTC:  0.0050  (escrow 0.0000)</code>",
+    ].join("\n"),
+  },
+  {
+    key: "trades",
+    label: "📋 /trades",
+    title: "📋 <b>/trades</b> — List active trades",
+    body: [
+      "Shows up to 10 of your most recent trades that are not released or cancelled.",
+      "Each row prints a short TRADE_ID prefix you can reuse with /release or /dispute.",
+      "",
+      "<b>Usage</b>",
+      "<code>/trades</code>",
+      "",
+      "<b>Example row</b>",
+      "<code>• 1a2b3c4d USDT 50 ↔ 50 EUR · funded</code>",
+    ].join("\n"),
+  },
+  {
+    key: "release",
+    label: "✅ /release",
+    title: "✅ <b>/release TRADE_ID</b> — Release escrow",
+    body: [
+      "Releases the escrowed crypto to the buyer. Only the seller can release.",
+      "Accepts the 8-char prefix shown in /trades or the full UUID.",
+      "",
+      "<b>Usage</b>",
+      "<code>/release TRADE_ID</code>",
+      "",
+      "<b>Examples</b>",
+      "<code>/release 1a2b3c4d</code>",
+      "<code>/release 1a2b3c4d-5e6f-7890-abcd-ef0123456789</code>",
+    ].join("\n"),
+  },
+  {
+    key: "dispute",
+    label: "🚩 /dispute",
+    title: "🚩 <b>/dispute TRADE_ID reason</b> — Open a dispute",
+    body: [
+      "Flags a trade for admin review. Reason must be at least 5 characters.",
+      "",
+      "<b>Usage</b>",
+      "<code>/dispute TRADE_ID reason text…</code>",
+      "",
+      "<b>Examples</b>",
+      "<code>/dispute 1a2b3c4d payment not received</code>",
+      "<code>/dispute 1a2b3c4d wrong amount sent</code>",
+    ].join("\n"),
+  },
+  {
+    key: "fee",
+    label: "⚙️ /fee (admin)",
+    title: "⚙️ <b>/fee BPS</b> — Set platform fee (admin)",
+    body: [
+      "Sets the platform fee in basis points (1 bps = 0.01%). Range: 0–1000.",
+      "",
+      "<b>Usage</b>",
+      "<code>/fee BPS</code>",
+      "",
+      "<b>Examples</b>",
+      "<code>/fee 0</code>     ← 0.00% (free)",
+      "<code>/fee 50</code>    ← 0.50%",
+      "<code>/fee 250</code>   ← 2.50%",
+    ].join("\n"),
+  },
+  {
+    key: "ban",
+    label: "🔨 /ban (admin)",
+    title: "🔨 <b>/ban USER_ID</b> — Ban a user (admin)",
+    body: [
+      "Marks a user as banned. They lose access to trades and offers.",
+      "",
+      "<b>Usage</b>",
+      "<code>/ban USER_ID</code>",
+      "",
+      "<b>Example</b>",
+      "<code>/ban 9f1c0a3b-2e7d-4b1a-9c10-aab1c2d3e4f5</code>",
+    ].join("\n"),
+  },
+];
+
+function helpMenuKeyboard() {
+  const rows: { text: string; callback_data: string }[][] = [];
+  for (let i = 0; i < HELP_TOPICS.length; i += 2) {
+    rows.push(
+      HELP_TOPICS.slice(i, i + 2).map((t) => ({
+        text: t.label,
+        callback_data: `help:${t.key}`,
+      })),
+    );
+  }
+  return { inline_keyboard: rows };
+}
+
+function helpTopicKeyboard() {
+  return {
+    inline_keyboard: [[{ text: "⬅️ Back to menu", callback_data: "help:menu" }]],
+  };
+}
+
+function helpMenuText() {
+  return [
+    "<b>📖 EscrowDesk · Interactive Help</b>",
+    "",
+    "Tap a command below for detailed usage and examples.",
+    "You can also type <code>/help &lt;command&gt;</code> — e.g. <code>/help release</code>.",
+    "",
+    "<b>Quick reference</b>",
+    "🚀 <code>/start</code> — welcome",
+    "🔗 <code>/link CODE</code> — link your web account",
+    "💼 <code>/balance</code> — wallet balances",
+    "📋 <code>/trades</code> — list active trades",
+    "✅ <code>/release TRADE_ID</code> — release escrow",
+    "🚩 <code>/dispute TRADE_ID reason</code> — open dispute",
+    "⚙️ <code>/fee BPS</code> — set platform fee <i>(admin)</i>",
+    "🔨 <code>/ban USER_ID</code> — ban a user <i>(admin)</i>",
+  ].join("\n");
+}
+
 
 function expectedSecret() {
   const TK = process.env.TELEGRAM_API_KEY || "";
