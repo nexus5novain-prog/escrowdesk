@@ -3,40 +3,63 @@ import { AuthGate } from "@/components/AuthGate";
 import { useServerFn } from "@tanstack/react-start";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
-import { getMe, updateWalletAddresses, getBadgeProgress } from "@/lib/escrow.functions";
+import { getMe, updateWalletAddresses, getBadgeProgress, getWalletPnL } from "@/lib/escrow.functions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { ShieldCheck, Crown, Wallet as WalletIcon, Bitcoin, CircleDollarSign } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { ShieldCheck, Crown, Wallet as WalletIcon, Bitcoin, CircleDollarSign, ArrowDownRight, ArrowUpRight, TrendingUp } from "lucide-react";
 import { toast } from "sonner";
+import { fmtCrypto, fmtFiat } from "@/lib/format";
 
 export const Route = createFileRoute("/wallet")({ component: () => (<AuthGate><Wallet /></AuthGate>) });
+
+const COINS = [
+  { key: "btc",  label: "BTC",          chainLabel: "Bitcoin",     placeholder: "Paste your BTC address (bc1… / 3… / 1…)" },
+  { key: "usdt", label: "USDT (TRC20)", chainLabel: "Tron / TRC20", placeholder: "Paste your USDT TRC20 address (T…)" },
+  { key: "usdc", label: "USDC",         chainLabel: "Choose chain", placeholder: "Paste your USDC address" },
+  { key: "eth",  label: "ETH",          chainLabel: "Ethereum",    placeholder: "Paste your ETH address (0x…)" },
+] as const;
 
 function Wallet() {
   const fetchMe = useServerFn(getMe);
   const saveAddrs = useServerFn(updateWalletAddresses);
   const fetchBadges = useServerFn(getBadgeProgress);
+  const fetchPnL = useServerFn(getWalletPnL);
   const { data, refetch } = useQuery({ queryKey: ["me"], queryFn: () => fetchMe() });
   const { data: badges } = useQuery({ queryKey: ["badges"], queryFn: () => fetchBadges() });
+  const { data: pnl } = useQuery({ queryKey: ["pnl"], queryFn: () => fetchPnL() });
 
   const [btc, setBtc] = useState("");
   const [usdt, setUsdt] = useState("");
+  const [usdc, setUsdc] = useState("");
+  const [usdcChain, setUsdcChain] = useState<"ERC20"|"TRC20">("ERC20");
+  const [eth, setEth] = useState("");
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    const p = data?.profile as { wallet_address_btc?: string | null; wallet_address_usdt?: string | null } | undefined;
+    const p = data?.profile as Record<string, string | null> | undefined;
     if (p) {
       setBtc(p.wallet_address_btc ?? "");
       setUsdt(p.wallet_address_usdt ?? "");
+      setUsdc(p.wallet_address_usdc ?? "");
+      setUsdcChain(((p.wallet_address_usdc_chain ?? "ERC20") as "ERC20"|"TRC20"));
+      setEth(p.wallet_address_eth ?? "");
     }
   }, [data?.profile]);
 
   const save = async () => {
     setSaving(true);
     try {
-      await saveAddrs({ data: { wallet_address_btc: btc, wallet_address_usdt: usdt } });
+      await saveAddrs({ data: {
+        wallet_address_btc: btc,
+        wallet_address_usdt: usdt,
+        wallet_address_usdc: usdc,
+        wallet_address_usdc_chain: usdcChain,
+        wallet_address_eth: eth,
+      } });
       toast.success("Payout addresses saved");
       refetch();
     } catch (e) { toast.error((e as Error).message); }
@@ -46,33 +69,80 @@ function Wallet() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Wallet & Payouts</h1>
-        <Link to="/post-offer"><Button variant="outline" size="sm">Post offer</Button></Link>
+        <h1 className="text-2xl font-semibold">Wallet & Earnings</h1>
+        <div className="flex gap-2">
+          <Link to="/escrow/new"><Button variant="outline" size="sm">New escrow group</Button></Link>
+          <Link to="/post-offer"><Button variant="outline" size="sm">Post offer</Button></Link>
+        </div>
       </div>
 
+      {/* Earnings PnL */}
+      <div className="surface p-6">
+        <div className="flex items-center gap-2">
+          <TrendingUp className="h-4 w-4 text-primary" />
+          <h2 className="font-semibold">Lifetime activity</h2>
+        </div>
+        <p className="mt-1 text-xs text-muted-foreground">
+          Totals are derived from completed (released) trades only.
+        </p>
+        <div className="mt-4 grid gap-3 sm:grid-cols-3">
+          <StatCard label="Total earned" value={fmtFiat(pnl?.total_earned_usd ?? 0, "USD")} icon={<ArrowDownRight className="h-4 w-4 text-emerald-400" />} />
+          <StatCard label="Total spent"  value={fmtFiat(pnl?.total_spent_usd ?? 0, "USD")} icon={<ArrowUpRight className="h-4 w-4 text-rose-400" />} />
+          <StatCard label="Net"           value={fmtFiat(pnl?.net_usd ?? 0, "USD")}          icon={<TrendingUp className="h-4 w-4 text-primary" />} />
+        </div>
+
+        <div className="mt-5">
+          <div className="mb-2 text-xs uppercase tracking-wider text-muted-foreground">Per-asset PnL</div>
+          {(pnl?.per_asset?.length ?? 0) === 0 ? (
+            <div className="rounded-md border border-dashed border-border/60 p-4 text-center text-xs text-muted-foreground">
+              No completed trades yet. Earnings will appear here after your first released trade.
+            </div>
+          ) : (
+            <div className="grid gap-2">
+              {pnl?.per_asset.map((row) => (
+                <div key={row.asset} className="flex items-center justify-between rounded-md border border-border/40 bg-secondary/20 p-3">
+                  <Badge variant="outline" className="font-mono">{row.asset}</Badge>
+                  <div className="flex gap-6 text-xs">
+                    <span className="text-emerald-400">+{fmtCrypto(row.earned, row.asset as "BTC"|"USDT")}</span>
+                    <span className="text-rose-400">−{fmtCrypto(row.spent, row.asset as "BTC"|"USDT")}</span>
+                    <span className="font-mono">net {row.net >= 0 ? "+" : ""}{fmtCrypto(row.net, row.asset as "BTC"|"USDT")}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Payout addresses */}
       <div className="surface p-6">
         <div className="flex items-center gap-2">
           <WalletIcon className="h-4 w-4 text-primary" />
-          <h2 className="font-semibold">Your on-chain payout addresses</h2>
+          <h2 className="font-semibold">Add wallet addresses</h2>
         </div>
         <p className="mt-1 text-xs text-muted-foreground">
-          Paste the wallet addresses where you'd like to receive crypto after a successful trade,
-          and where you'll deposit from when escrowing. These addresses are visible to your trade counterparty
-          inside the trade chat.
+          Paste the on-chain addresses where coin will be released and accepted after successful trades.
+          These addresses are visible to your trade counterparty inside the trade chat.
         </p>
         <div className="mt-4 grid gap-4 md:grid-cols-2">
+          <AddrField label="BTC" icon={<Bitcoin className="h-3.5 w-3.5" />} value={btc} onChange={setBtc} placeholder={COINS[0].placeholder} />
+          <AddrField label="USDT (TRC20)" icon={<CircleDollarSign className="h-3.5 w-3.5" />} value={usdt} onChange={setUsdt} placeholder={COINS[1].placeholder} />
           <div className="space-y-1.5">
             <Label className="flex items-center gap-1.5 text-xs uppercase tracking-wider text-muted-foreground">
-              <Bitcoin className="h-3.5 w-3.5" /> BTC address
+              <CircleDollarSign className="h-3.5 w-3.5" /> USDC
             </Label>
-            <Input value={btc} onChange={(e) => setBtc(e.target.value)} placeholder="Paste your BTC address (bc1… / 3… / 1…)" className="font-mono" />
+            <div className="flex gap-2">
+              <Select value={usdcChain} onValueChange={(v) => setUsdcChain(v as "ERC20"|"TRC20")}>
+                <SelectTrigger className="w-32"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="ERC20">ERC20</SelectItem>
+                  <SelectItem value="TRC20">TRC20</SelectItem>
+                </SelectContent>
+              </Select>
+              <Input value={usdc} onChange={(e) => setUsdc(e.target.value)} placeholder={COINS[2].placeholder} className="font-mono" />
+            </div>
           </div>
-          <div className="space-y-1.5">
-            <Label className="flex items-center gap-1.5 text-xs uppercase tracking-wider text-muted-foreground">
-              <CircleDollarSign className="h-3.5 w-3.5" /> USDT address
-            </Label>
-            <Input value={usdt} onChange={(e) => setUsdt(e.target.value)} placeholder="Paste your USDT address (TRC20 / ERC20)" className="font-mono" />
-          </div>
+          <AddrField label="ETH" icon={<CircleDollarSign className="h-3.5 w-3.5" />} value={eth} onChange={setEth} placeholder={COINS[3].placeholder} />
         </div>
         <div className="mt-4 flex justify-end">
           <Button onClick={save} disabled={saving}>{saving ? "Saving…" : "Save addresses"}</Button>
@@ -80,6 +150,30 @@ function Wallet() {
       </div>
 
       <BadgeJourney badges={badges} />
+    </div>
+  );
+}
+
+function StatCard({ label, value, icon }: { label: string; value: string; icon: React.ReactNode }) {
+  return (
+    <div className="rounded-md border border-border/40 bg-secondary/20 p-4">
+      <div className="flex items-center justify-between text-xs uppercase tracking-wider text-muted-foreground">
+        {label}{icon}
+      </div>
+      <div className="mt-1 font-mono text-xl">{value}</div>
+    </div>
+  );
+}
+
+function AddrField({ label, icon, value, onChange, placeholder }: {
+  label: string; icon: React.ReactNode; value: string; onChange: (s: string)=>void; placeholder: string;
+}) {
+  return (
+    <div className="space-y-1.5">
+      <Label className="flex items-center gap-1.5 text-xs uppercase tracking-wider text-muted-foreground">
+        {icon} {label}
+      </Label>
+      <Input value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} className="font-mono" />
     </div>
   );
 }
@@ -100,22 +194,10 @@ function BadgeJourney({ badges }: { badges?: { is_trusted: boolean; is_premium: 
   ];
   return (
     <div className="grid gap-4 md:grid-cols-2">
-      <BadgeCard
-        title="Trusted badge"
-        icon={<ShieldCheck className="h-4 w-4" />}
-        unlocked={b.is_trusted}
-        accentClass="text-emerald-400"
-        intro="Earn your Trusted badge by completing this journey:"
-        steps={trustedSteps}
-      />
-      <BadgeCard
-        title="Premium tier"
-        icon={<Crown className="h-4 w-4" />}
-        unlocked={b.is_premium}
-        accentClass="text-amber-400"
-        intro="Top-tier verified merchant. Unlock by maintaining excellence:"
-        steps={premiumSteps}
-      />
+      <BadgeCard title="Trusted badge" icon={<ShieldCheck className="h-4 w-4" />} unlocked={b.is_trusted}
+        accentClass="text-emerald-400" intro="Earn your Trusted badge by completing this journey:" steps={trustedSteps} />
+      <BadgeCard title="Premium tier" icon={<Crown className="h-4 w-4" />} unlocked={b.is_premium}
+        accentClass="text-amber-400" intro="Top-tier verified merchant. Unlock by maintaining excellence:" steps={premiumSteps} />
     </div>
   );
 }
