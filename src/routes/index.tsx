@@ -57,7 +57,7 @@ function MarketplacePage() {
               <Button onClick={() => nav({ to: user ? "/post-listing" : "/auth" })} className="gap-2">
                 <Plus className="h-4 w-4" /> Post a listing
               </Button>
-              <Link to="/"><Button variant="outline">Escrow market</Button></Link>
+              <Link to="/order-book"><Button variant="outline">Escrow order book</Button></Link>
             </div>
           </div>
           <MediatorBot />
