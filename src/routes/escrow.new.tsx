@@ -96,6 +96,7 @@ function NewEscrow() {
             </p>
           </TabsContent>
         </Tabs>
+        </>)}
 
         <div className="grid gap-3 sm:grid-cols-3">
           <div>
