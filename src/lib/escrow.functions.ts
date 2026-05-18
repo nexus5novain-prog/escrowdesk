@@ -668,18 +668,51 @@ export const updateWalletAddresses = createServerFn({ method: "POST" })
     z.object({
       wallet_address_btc: z.string().trim().max(120).optional().nullable(),
       wallet_address_usdt: z.string().trim().max(120).optional().nullable(),
+      wallet_address_usdc: z.string().trim().max(120).optional().nullable(),
+      wallet_address_usdc_chain: z.enum(["ERC20","TRC20"]).optional(),
+      wallet_address_eth: z.string().trim().max(120).optional().nullable(),
     }),
   )
   .handler(async ({ data, context }) => {
-    const patch: { wallet_address_btc?: string | null; wallet_address_usdt?: string | null } = {};
-    if (data.wallet_address_btc !== undefined)
-      patch.wallet_address_btc = data.wallet_address_btc || null;
-    if (data.wallet_address_usdt !== undefined)
-      patch.wallet_address_usdt = data.wallet_address_usdt || null;
+    const patch: Record<string, string | null> = {};
+    if (data.wallet_address_btc !== undefined) patch.wallet_address_btc = data.wallet_address_btc || null;
+    if (data.wallet_address_usdt !== undefined) patch.wallet_address_usdt = data.wallet_address_usdt || null;
+    if (data.wallet_address_usdc !== undefined) patch.wallet_address_usdc = data.wallet_address_usdc || null;
+    if (data.wallet_address_usdc_chain !== undefined) patch.wallet_address_usdc_chain = data.wallet_address_usdc_chain;
+    if (data.wallet_address_eth !== undefined) patch.wallet_address_eth = data.wallet_address_eth || null;
     const { error } = await supabaseAdmin
-      .from("profiles").update(patch).eq("user_id", context.userId);
+      .from("profiles").update(patch as never).eq("user_id", context.userId);
     if (error) throw new Error(error.message);
     return { ok: true };
+  });
+
+// ---------- Wallet PnL ----------
+export const getWalletPnL = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const u = context.userId;
+    const { data: trades } = await supabaseAdmin
+      .from("trades")
+      .select("asset, crypto_amount, fiat_amount, buyer_id, seller_id, status")
+      .eq("status", "released")
+      .or(`buyer_id.eq.${u},seller_id.eq.${u}`);
+    const byAsset = new Map<string, { earned: number; spent: number }>();
+    let totalEarnedUsd = 0, totalSpentUsd = 0;
+    for (const t of trades ?? []) {
+      const a = String(t.asset);
+      const row = byAsset.get(a) ?? { earned: 0, spent: 0 };
+      const crypto = Number(t.crypto_amount);
+      const fiat = Number(t.fiat_amount);
+      if (t.seller_id === u) { row.earned += crypto; totalEarnedUsd += fiat; }
+      if (t.buyer_id === u)  { row.spent  += crypto; totalSpentUsd  += fiat; }
+      byAsset.set(a, row);
+    }
+    return {
+      per_asset: Array.from(byAsset, ([asset, v]) => ({ asset, ...v, net: v.earned - v.spent })),
+      total_earned_usd: totalEarnedUsd,
+      total_spent_usd: totalSpentUsd,
+      net_usd: totalEarnedUsd - totalSpentUsd,
+    };
   });
 
 // ---------- Trade ratings ----------

@@ -58,6 +58,142 @@ export type Database = {
           },
         ]
       }
+      escrow_group_members: {
+        Row: {
+          group_id: string
+          joined_at: string
+          role: Database["public"]["Enums"]["escrow_member_role"]
+          user_id: string
+        }
+        Insert: {
+          group_id: string
+          joined_at?: string
+          role: Database["public"]["Enums"]["escrow_member_role"]
+          user_id: string
+        }
+        Update: {
+          group_id?: string
+          joined_at?: string
+          role?: Database["public"]["Enums"]["escrow_member_role"]
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "escrow_group_members_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "escrow_groups"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      escrow_group_messages: {
+        Row: {
+          body: string
+          created_at: string
+          from_telegram: boolean
+          group_id: string
+          id: string
+          is_system: boolean
+          sender_id: string | null
+        }
+        Insert: {
+          body: string
+          created_at?: string
+          from_telegram?: boolean
+          group_id: string
+          id?: string
+          is_system?: boolean
+          sender_id?: string | null
+        }
+        Update: {
+          body?: string
+          created_at?: string
+          from_telegram?: boolean
+          group_id?: string
+          id?: string
+          is_system?: boolean
+          sender_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "escrow_group_messages_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "escrow_groups"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      escrow_groups: {
+        Row: {
+          amount: number
+          asset: Database["public"]["Enums"]["asset_type"]
+          counterparty_id: string | null
+          created_at: string
+          creator_id: string
+          deposit_tx_hash: string | null
+          escrow_address: string | null
+          escrow_address_chain: string | null
+          fiat_amount: number | null
+          fiat_currency: string
+          id: string
+          invited_telegram: string | null
+          invited_username: string | null
+          listing_id: string | null
+          released_at: string | null
+          status: Database["public"]["Enums"]["escrow_group_status"]
+          telegram_chat_id: number | null
+          telegram_link_token: string | null
+          trade_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          amount: number
+          asset: Database["public"]["Enums"]["asset_type"]
+          counterparty_id?: string | null
+          created_at?: string
+          creator_id: string
+          deposit_tx_hash?: string | null
+          escrow_address?: string | null
+          escrow_address_chain?: string | null
+          fiat_amount?: number | null
+          fiat_currency?: string
+          id?: string
+          invited_telegram?: string | null
+          invited_username?: string | null
+          listing_id?: string | null
+          released_at?: string | null
+          status?: Database["public"]["Enums"]["escrow_group_status"]
+          telegram_chat_id?: number | null
+          telegram_link_token?: string | null
+          trade_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          amount?: number
+          asset?: Database["public"]["Enums"]["asset_type"]
+          counterparty_id?: string | null
+          created_at?: string
+          creator_id?: string
+          deposit_tx_hash?: string | null
+          escrow_address?: string | null
+          escrow_address_chain?: string | null
+          fiat_amount?: number | null
+          fiat_currency?: string
+          id?: string
+          invited_telegram?: string | null
+          invited_username?: string | null
+          listing_id?: string | null
+          released_at?: string | null
+          status?: Database["public"]["Enums"]["escrow_group_status"]
+          telegram_chat_id?: number | null
+          telegram_link_token?: string | null
+          trade_id?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       listings: {
         Row: {
           amount: number | null
@@ -229,6 +365,9 @@ export type Database = {
           updated_at: string
           user_id: string
           wallet_address_btc: string | null
+          wallet_address_eth: string | null
+          wallet_address_usdc: string | null
+          wallet_address_usdc_chain: string | null
           wallet_address_usdt: string | null
         }
         Insert: {
@@ -254,6 +393,9 @@ export type Database = {
           updated_at?: string
           user_id: string
           wallet_address_btc?: string | null
+          wallet_address_eth?: string | null
+          wallet_address_usdc?: string | null
+          wallet_address_usdc_chain?: string | null
           wallet_address_usdt?: string | null
         }
         Update: {
@@ -279,6 +421,9 @@ export type Database = {
           updated_at?: string
           user_id?: string
           wallet_address_btc?: string | null
+          wallet_address_eth?: string | null
+          wallet_address_usdc?: string | null
+          wallet_address_usdc_chain?: string | null
           wallet_address_usdt?: string | null
         }
         Relationships: []
@@ -376,10 +521,12 @@ export type Database = {
         Row: {
           asset: Database["public"]["Enums"]["asset_type"]
           buyer_id: string
+          buyer_payout_address: string | null
           cancelled_at: string | null
           created_at: string
           crypto_amount: number
           deposit_confirmed_at: string | null
+          deposit_tx_hash: string | null
           fee_amount: number
           fiat_amount: number
           fiat_currency: string
@@ -391,6 +538,7 @@ export type Database = {
           price: number
           released_at: string | null
           seller_id: string
+          seller_payout_address: string | null
           signature_buyer: string | null
           signature_seller: string | null
           signed_by_buyer_at: string | null
@@ -403,10 +551,12 @@ export type Database = {
         Insert: {
           asset: Database["public"]["Enums"]["asset_type"]
           buyer_id: string
+          buyer_payout_address?: string | null
           cancelled_at?: string | null
           created_at?: string
           crypto_amount: number
           deposit_confirmed_at?: string | null
+          deposit_tx_hash?: string | null
           fee_amount?: number
           fiat_amount: number
           fiat_currency: string
@@ -418,6 +568,7 @@ export type Database = {
           price: number
           released_at?: string | null
           seller_id: string
+          seller_payout_address?: string | null
           signature_buyer?: string | null
           signature_seller?: string | null
           signed_by_buyer_at?: string | null
@@ -430,10 +581,12 @@ export type Database = {
         Update: {
           asset?: Database["public"]["Enums"]["asset_type"]
           buyer_id?: string
+          buyer_payout_address?: string | null
           cancelled_at?: string | null
           created_at?: string
           crypto_amount?: number
           deposit_confirmed_at?: string | null
+          deposit_tx_hash?: string | null
           fee_amount?: number
           fiat_amount?: number
           fiat_currency?: string
@@ -445,6 +598,7 @@ export type Database = {
           price?: number
           released_at?: string | null
           seller_id?: string
+          seller_payout_address?: string | null
           signature_buyer?: string | null
           signature_seller?: string | null
           signed_by_buyer_at?: string | null
@@ -633,6 +787,10 @@ export type Database = {
         }
         Returns: boolean
       }
+      is_group_member: {
+        Args: { _group: string; _user: string }
+        Returns: boolean
+      }
       is_staff: { Args: { _user_id: string }; Returns: boolean }
       mark_trade_paid: {
         Args: { _caller: string; _trade_id: string }
@@ -698,8 +856,16 @@ export type Database = {
     }
     Enums: {
       app_role: "admin" | "moderator" | "user" | "judge" | "finance" | "support"
-      asset_type: "USDT" | "BTC"
+      asset_type: "USDT" | "BTC" | "USDC" | "ETH"
       dispute_status: "open" | "resolved_buyer" | "resolved_seller"
+      escrow_group_status:
+        | "awaiting_counterparty"
+        | "active"
+        | "funded"
+        | "released"
+        | "cancelled"
+        | "disputed"
+      escrow_member_role: "buyer" | "seller" | "moderator"
       listing_kind: "selling" | "seeking"
       listing_status: "active" | "inactive" | "sold"
       offer_side: "buy" | "sell"
@@ -849,8 +1015,17 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["admin", "moderator", "user", "judge", "finance", "support"],
-      asset_type: ["USDT", "BTC"],
+      asset_type: ["USDT", "BTC", "USDC", "ETH"],
       dispute_status: ["open", "resolved_buyer", "resolved_seller"],
+      escrow_group_status: [
+        "awaiting_counterparty",
+        "active",
+        "funded",
+        "released",
+        "cancelled",
+        "disputed",
+      ],
+      escrow_member_role: ["buyer", "seller", "moderator"],
       listing_kind: ["selling", "seeking"],
       listing_status: ["active", "inactive", "sold"],
       offer_side: ["buy", "sell"],
