@@ -13,7 +13,51 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { ShieldAlert, Send, ExternalLink, Hash, CheckCircle2 } from "lucide-react";
+import { ShieldAlert, Send, ExternalLink, Hash, CheckCircle2, CircleDot, Clock, XCircle } from "lucide-react";
+
+const TIMELINE: { key: string; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
+  { key: "awaiting_counterparty", label: "Created", icon: CircleDot },
+  { key: "active", label: "Awaiting deposit", icon: Clock },
+  { key: "funded", label: "Deposit submitted", icon: Hash },
+  { key: "released", label: "Released", icon: CheckCircle2 },
+];
+
+function StatusTimeline({ status }: { status: string }) {
+  if (status === "cancelled") {
+    return (
+      <div className="surface flex items-center gap-3 p-4 text-sm">
+        <XCircle className="h-5 w-5 text-destructive" />
+        <span className="font-medium">Group cancelled</span>
+      </div>
+    );
+  }
+  const order = TIMELINE.map((s) => s.key);
+  const activeIdx = Math.max(0, order.indexOf(status));
+  return (
+    <div className="surface p-4">
+      <div className="flex items-center justify-between gap-2">
+        {TIMELINE.map((s, i) => {
+          const done = i < activeIdx;
+          const current = i === activeIdx;
+          const Icon = s.icon;
+          return (
+            <div key={s.key} className="flex flex-1 items-center gap-2">
+              <div className={`flex items-center gap-2 ${current ? "text-primary" : done ? "text-emerald-400" : "text-muted-foreground"}`}>
+                <div className={`grid h-7 w-7 place-items-center rounded-full border ${current ? "border-primary bg-primary/15 animate-pulse" : done ? "border-emerald-500/50 bg-emerald-500/10" : "border-border/60 bg-secondary/30"}`}>
+                  <Icon className="h-3.5 w-3.5" />
+                </div>
+                <span className="text-[11px] font-medium uppercase tracking-wide">{s.label}</span>
+              </div>
+              {i < TIMELINE.length - 1 && (
+                <div className={`h-px flex-1 ${done ? "bg-emerald-500/50" : "bg-border/60"}`} />
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
 
 export const Route = createFileRoute("/escrow/$id")({
   component: () => (<AuthGate><EscrowGroupPage /></AuthGate>),
