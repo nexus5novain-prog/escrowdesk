@@ -8,6 +8,8 @@ import {
   adminListOffers, adminUpdateOfferStatus,
   adminListTrades, adminForceCancelTrade, adminForceReleaseTrade,
   tgGetStatus, tgSetWebhook, tgDeleteWebhook, tgSendTest,
+  adminListUsers, adminBanUser, adminUnbanUser, adminWarnUser,
+  adminAssignRole, adminRevokeRole, adminUnlinkTelegram, adminListWarnings,
 } from "@/lib/escrow.functions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
