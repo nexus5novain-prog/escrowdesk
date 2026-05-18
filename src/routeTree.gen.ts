@@ -20,6 +20,7 @@ import { Route as AdminRouteImport } from './routes/admin'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as TradeIdRouteImport } from './routes/trade.$id'
 import { Route as OfferIdRouteImport } from './routes/offer.$id'
+import { Route as EscrowNewRouteImport } from './routes/escrow.new'
 import { Route as ApiPublicTelegramWebhookRouteImport } from './routes/api/public/telegram/webhook'
 import { Route as ApiPublicTelegramSetupRouteImport } from './routes/api/public/telegram/setup'
 
@@ -78,6 +79,11 @@ const OfferIdRoute = OfferIdRouteImport.update({
   path: '/offer/$id',
   getParentRoute: () => rootRouteImport,
 } as any)
+const EscrowNewRoute = EscrowNewRouteImport.update({
+  id: '/escrow/new',
+  path: '/escrow/new',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiPublicTelegramWebhookRoute =
   ApiPublicTelegramWebhookRouteImport.update({
     id: '/api/public/telegram/webhook',
@@ -100,6 +106,7 @@ export interface FileRoutesByFullPath {
   '/settings': typeof SettingsRoute
   '/trades': typeof TradesRoute
   '/wallet': typeof WalletRoute
+  '/escrow/new': typeof EscrowNewRoute
   '/offer/$id': typeof OfferIdRoute
   '/trade/$id': typeof TradeIdRoute
   '/api/public/telegram/setup': typeof ApiPublicTelegramSetupRoute
@@ -115,6 +122,7 @@ export interface FileRoutesByTo {
   '/settings': typeof SettingsRoute
   '/trades': typeof TradesRoute
   '/wallet': typeof WalletRoute
+  '/escrow/new': typeof EscrowNewRoute
   '/offer/$id': typeof OfferIdRoute
   '/trade/$id': typeof TradeIdRoute
   '/api/public/telegram/setup': typeof ApiPublicTelegramSetupRoute
@@ -131,6 +139,7 @@ export interface FileRoutesById {
   '/settings': typeof SettingsRoute
   '/trades': typeof TradesRoute
   '/wallet': typeof WalletRoute
+  '/escrow/new': typeof EscrowNewRoute
   '/offer/$id': typeof OfferIdRoute
   '/trade/$id': typeof TradeIdRoute
   '/api/public/telegram/setup': typeof ApiPublicTelegramSetupRoute
@@ -148,6 +157,7 @@ export interface FileRouteTypes {
     | '/settings'
     | '/trades'
     | '/wallet'
+    | '/escrow/new'
     | '/offer/$id'
     | '/trade/$id'
     | '/api/public/telegram/setup'
@@ -163,6 +173,7 @@ export interface FileRouteTypes {
     | '/settings'
     | '/trades'
     | '/wallet'
+    | '/escrow/new'
     | '/offer/$id'
     | '/trade/$id'
     | '/api/public/telegram/setup'
@@ -178,6 +189,7 @@ export interface FileRouteTypes {
     | '/settings'
     | '/trades'
     | '/wallet'
+    | '/escrow/new'
     | '/offer/$id'
     | '/trade/$id'
     | '/api/public/telegram/setup'
@@ -194,6 +206,7 @@ export interface RootRouteChildren {
   SettingsRoute: typeof SettingsRoute
   TradesRoute: typeof TradesRoute
   WalletRoute: typeof WalletRoute
+  EscrowNewRoute: typeof EscrowNewRoute
   OfferIdRoute: typeof OfferIdRoute
   TradeIdRoute: typeof TradeIdRoute
   ApiPublicTelegramSetupRoute: typeof ApiPublicTelegramSetupRoute
@@ -279,6 +292,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof OfferIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/escrow/new': {
+      id: '/escrow/new'
+      path: '/escrow/new'
+      fullPath: '/escrow/new'
+      preLoaderRoute: typeof EscrowNewRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/telegram/webhook': {
       id: '/api/public/telegram/webhook'
       path: '/api/public/telegram/webhook'
@@ -306,6 +326,7 @@ const rootRouteChildren: RootRouteChildren = {
   SettingsRoute: SettingsRoute,
   TradesRoute: TradesRoute,
   WalletRoute: WalletRoute,
+  EscrowNewRoute: EscrowNewRoute,
   OfferIdRoute: OfferIdRoute,
   TradeIdRoute: TradeIdRoute,
   ApiPublicTelegramSetupRoute: ApiPublicTelegramSetupRoute,
@@ -314,3 +335,13 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
