@@ -146,6 +146,8 @@ function EscrowGroupPage() {
           </div>
         </div>
 
+        <StatusTimeline status={g.status} />
+
         {/* Buyer: submit tx hash */}
         {isBuyer && g.escrow_address && !g.deposit_tx_hash && (
           <div className="surface p-5 space-y-3">
