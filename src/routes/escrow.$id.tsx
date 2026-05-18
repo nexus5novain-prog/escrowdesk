@@ -101,12 +101,19 @@ function EscrowGroupPage() {
     id: string; creator_id: string; counterparty_id: string | null; asset: string; amount: number;
     fiat_amount: number | null; fiat_currency: string; status: string;
     escrow_address: string | null; escrow_address_chain: string | null;
-    deposit_tx_hash: string | null; telegram_chat_id: number | null;
+    deposit_tx_hash: string | null; deposit_verified_at: string | null;
+    telegram_chat_id: number | null;
     telegram_link_token: string | null; invited_telegram: string | null;
     invited_username: string | null;
   };
   const isBuyer = user?.id === g.creator_id;
   const isSeller = user?.id === g.counterparty_id;
+  const myMember = data.members.find((m) => m.user_id === user?.id) as
+    { accepted_at: string | null; declined_at: string | null; role: string } | undefined;
+  const sellerMember = data.members.find((m) => m.role === "seller") as
+    { accepted_at: string | null; declined_at: string | null } | undefined;
+  const sellerPending = !!sellerMember && !sellerMember.accepted_at && !sellerMember.declined_at;
+  const iAmPendingInvitee = !!myMember && !myMember.accepted_at && !myMember.declined_at && myMember.role !== "buyer";
 
   const act = async (fn: () => Promise<unknown>, ok: string) => {
     try { await fn(); toast.success(ok); refetch(); } catch (e) { toast.error((e as Error).message); }
