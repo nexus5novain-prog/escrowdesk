@@ -175,6 +175,8 @@ function TradesPanel() {
           <SelectTrigger className="w-44"><SelectValue /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All</SelectItem>
+            <SelectItem value="awaiting_agreement">Awaiting agreement</SelectItem>
+            <SelectItem value="awaiting_seller_confirm">Awaiting seller confirm</SelectItem>
             <SelectItem value="pending_payment">Pending payment</SelectItem>
             <SelectItem value="paid">Paid</SelectItem>
             <SelectItem value="disputed">Disputed</SelectItem>
