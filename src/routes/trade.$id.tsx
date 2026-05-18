@@ -107,6 +107,10 @@ function TradePage() {
           </div>
         </div>
 
+        {t.status === "released" && (isBuyer || isSeller) && (
+          <RatingPanel tradeId={t.id} />
+        )}
+
         {/* Terms & signature panel — only during agreement step */}
         {(isBuyer || isSeller) && t.status === "awaiting_agreement" && (
           <div className="surface p-5 space-y-3">
