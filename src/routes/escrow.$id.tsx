@@ -73,6 +73,9 @@ function EscrowGroupPage() {
   const submitHash = useServerFn(submitGroupTxHash);
   const release = useServerFn(releaseEscrowGroup);
   const cancel = useServerFn(cancelEscrowGroup);
+  const accept = useServerFn(acceptEscrowInvite);
+  const decline = useServerFn(declineEscrowInvite);
+  const verify = useServerFn(verifyGroupDeposit);
 
   const { data, refetch } = useQuery({
     queryKey: ["escrow-group", id],
