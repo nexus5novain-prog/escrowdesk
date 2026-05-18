@@ -322,16 +322,38 @@ export const cancelEscrowGroup = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
-// -------- List my groups --------
+// -------- List my groups + stats --------
 export const listMyEscrowGroups = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     const { data: mems } = await supabaseAdmin
       .from("escrow_group_members").select("group_id, role").eq("user_id", context.userId);
     const ids = (mems ?? []).map((m) => m.group_id);
-    if (!ids.length) return { groups: [] };
+    const stats = { open: 0, pending: 0, successful: 0, failed: 0 };
+    if (!ids.length) return { groups: [], stats };
     const { data: groups } = await supabaseAdmin
       .from("escrow_groups").select("*").in("id", ids).order("created_at", { ascending: false });
     const roleMap = new Map((mems ?? []).map((m) => [m.group_id, m.role]));
-    return { groups: (groups ?? []).map((g) => ({ ...g, my_role: roleMap.get(g.id) })) };
+    const counterIds = Array.from(new Set((groups ?? []).flatMap((g) => [g.creator_id, g.counterparty_id]).filter((x): x is string => !!x && x !== context.userId)));
+    const profileMap = await loadProfiles(counterIds);
+    for (const g of groups ?? []) {
+      const s = String(g.status);
+      if (s === "released") stats.successful++;
+      else if (s === "cancelled" || s === "disputed") stats.failed++;
+      else {
+        stats.open++;
+        if (s === "awaiting_counterparty") stats.pending++;
+      }
+    }
+    return {
+      stats,
+      groups: (groups ?? []).map((g) => {
+        const otherId = g.creator_id === context.userId ? g.counterparty_id : g.creator_id;
+        return {
+          ...g,
+          my_role: roleMap.get(g.id),
+          counterparty: otherId ? profileMap.get(otherId) ?? null : null,
+        };
+      }),
+    };
   });
