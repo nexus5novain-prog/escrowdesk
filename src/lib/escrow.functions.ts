@@ -766,11 +766,12 @@ export const getBadgeProgress = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     const u = context.userId;
-    const [{ data: prof }, { count: tradesCount }, ratings, partners] = await Promise.all([
+    const [{ data: prof }, { count: tradesCount }, ratings, partners, { data: roleRows }] = await Promise.all([
       supabaseAdmin.from("profiles").select("is_trusted,is_premium,btc_volume_usd,five_star_count,distinct_partners").eq("user_id", u).maybeSingle(),
       supabaseAdmin.from("trades").select("id", { count: "exact", head: true }).eq("status","released").or(`buyer_id.eq.${u},seller_id.eq.${u}`),
       supabaseAdmin.from("trade_ratings").select("rater_id,stars").eq("ratee_id", u),
       supabaseAdmin.from("trades").select("buyer_id,seller_id").eq("status","released").or(`buyer_id.eq.${u},seller_id.eq.${u}`),
+      supabaseAdmin.from("user_roles").select("role").eq("user_id", u),
     ]);
     const distinct4plus = new Set(
       (ratings.data ?? []).filter((r) => r.stars >= 4).map((r) => r.rater_id),
@@ -781,9 +782,10 @@ export const getBadgeProgress = createServerFn({ method: "GET" })
       partnerCounts.set(p, (partnerCounts.get(p) ?? 0) + 1);
     }
     const maxRepeat = Math.max(0, ...Array.from(partnerCounts.values()));
+    const isAdmin = (roleRows ?? []).some((r) => r.role === "admin");
     return {
-      is_trusted: !!prof?.is_trusted,
-      is_premium: !!prof?.is_premium,
+      is_trusted: isAdmin || !!prof?.is_trusted,
+      is_premium: isAdmin || !!prof?.is_premium,
       trades_completed: tradesCount ?? 0,
       distinct_4plus_raters: distinct4plus,
       max_repeat_partner: maxRepeat,
