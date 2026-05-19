@@ -11,14 +11,14 @@ import { supabase } from "@/integrations/supabase/client";
 import { Activity, CheckCircle2, XCircle, Clock, Handshake } from "lucide-react";
 import { motion } from "framer-motion";
 
-export const Route = createFileRoute("/trades")({
+export const Route = createFileRoute("/escrow")({
   head: () => ({
     meta: [
-      { title: "Trades — EscrowDesk" },
-      { name: "description", content: "View all bought products, services, and transaction history in one trade dashboard." },
+      { title: "Escrow — EscrowDesk" },
+      { name: "description", content: "View all escrow groups, bought products, services, and transaction history in one dashboard." },
     ],
   }),
-  component: () => (<AuthGate><Trades /></AuthGate>),
+  component: () => (<AuthGate><Escrow /></AuthGate>),
 });
 
 type StatusBucket = "open" | "pending" | "successful" | "failed";
@@ -30,7 +30,7 @@ function bucketOf(status: string): StatusBucket {
   return "open";
 }
 
-function Trades() {
+function Escrow() {
   const { user } = useAuth();
   const qc = useQueryClient();
   const fn = useServerFn(listMyEscrowGroups);
@@ -43,7 +43,7 @@ function Trades() {
   useEffect(() => {
     if (!user) return;
     const ch = supabase
-      .channel(`trades-live-${user.id}`)
+      .channel(`escrow-main-${user.id}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "escrow_groups" }, () => {
         qc.invalidateQueries({ queryKey: ["my-escrow-groups"] });
       })
@@ -61,7 +61,7 @@ function Trades() {
   const active = groups.filter((g) => !["released", "cancelled"].includes(String(g.status)));
 
   const cards: { key: StatusBucket; label: string; value: number; icon: React.ReactNode; tone: string }[] = [
-    { key: "open", label: "Open trades", value: stats.open, icon: <Activity className="h-4 w-4" />, tone: "text-primary" },
+    { key: "open", label: "Open escrows", value: stats.open, icon: <Activity className="h-4 w-4" />, tone: "text-primary" },
     { key: "successful", label: "Successful", value: stats.successful, icon: <CheckCircle2 className="h-4 w-4" />, tone: "text-emerald-500" },
     { key: "failed", label: "Failed", value: stats.failed, icon: <XCircle className="h-4 w-4" />, tone: "text-destructive" },
     { key: "pending", label: "Pending", value: stats.pending, icon: <Clock className="h-4 w-4" />, tone: "text-amber-500" },
@@ -72,9 +72,9 @@ function Trades() {
       <section className="surface rounded-3xl p-6">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <div className="text-xs uppercase tracking-[0.2em] text-muted-foreground">Trade dashboard</div>
-            <h1 className="text-3xl font-semibold">Bought products & services</h1>
-            <p className="mt-2 text-sm text-muted-foreground">Review every purchase and history entry, including digital downloads and completed escrow transactions.</p>
+            <div className="text-xs uppercase tracking-[0.2em] text-muted-foreground">Escrow Management</div>
+            <h1 className="text-3xl font-semibold">Escrow Dashboard</h1>
+            <p className="mt-2 text-sm text-muted-foreground">Review all escrow groups, purchases, and transaction history. Manage your active escrows and monitor transaction statuses.</p>
           </div>
           <Link to="/escrow/new"><Badge className="cursor-pointer gap-1"><Handshake className="h-3 w-3" /> New escrow</Badge></Link>
         </div>
@@ -107,8 +107,8 @@ function Trades() {
       <section className="surface">
         <header className="flex flex-col gap-2 border-b border-border/40 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h2 className="text-sm font-semibold uppercase tracking-wider">Purchased items</h2>
-            <p className="text-xs text-muted-foreground">All products and services that you bought through escrow.</p>
+            <h2 className="text-sm font-semibold uppercase tracking-wider">Purchased Items</h2>
+            <p className="text-xs text-muted-foreground">All products and services that you purchased through escrow.</p>
           </div>
           <span className="font-mono text-xs text-muted-foreground">{purchases.length} purchased</span>
         </header>
@@ -146,7 +146,7 @@ function Trades() {
           })}
           {purchases.length === 0 && (
             <div className="p-10 text-center text-sm text-muted-foreground">
-              No purchased items yet. <Link to="/marketplace" className="text-primary underline">Browse the marketplace</Link> or <Link to="/escrow/new" className="text-primary underline">create a purchase</Link>.
+              No purchased items yet. <Link to="/marketplace" className="text-primary underline">Browse the marketplace</Link> or <Link to="/escrow/new" className="text-primary underline">create an escrow</Link>.
             </div>
           )}
         </div>
@@ -154,7 +154,7 @@ function Trades() {
 
       <section className="surface">
         <header className="flex items-center justify-between border-b border-border/40 px-5 py-3">
-          <h2 className="text-sm font-semibold uppercase tracking-wider">Active escrow groups</h2>
+          <h2 className="text-sm font-semibold uppercase tracking-wider">Active Escrows</h2>
           <span className="font-mono text-xs text-muted-foreground">{active.length} active</span>
         </header>
         <div className="divide-y divide-border/40">
@@ -189,7 +189,7 @@ function Trades() {
           })}
           {active.length === 0 && (
             <div className="p-10 text-center text-sm text-muted-foreground">
-              No active trades. <Link to="/marketplace" className="text-primary underline">Browse the marketplace</Link> or <Link to="/escrow/new" className="text-primary underline">start a manual escrow</Link>.
+              No active escrows. <Link to="/marketplace" className="text-primary underline">Browse the marketplace</Link> or <Link to="/escrow/new" className="text-primary underline">start a new escrow</Link>.
             </div>
           )}
         </div>

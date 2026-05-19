@@ -14,7 +14,7 @@ import { Route as TradesRouteImport } from './routes/trades'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as PostOfferRouteImport } from './routes/post-offer'
 import { Route as PostListingRouteImport } from './routes/post-listing'
-import { Route as OrderBookRouteImport } from './routes/order-book'
+import { Route as OrderBookRouteImport } from './routes/shop'
 import { Route as MarketplaceRouteImport } from './routes/marketplace'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AdminRouteImport } from './routes/admin'
@@ -52,8 +52,8 @@ const PostListingRoute = PostListingRouteImport.update({
   getParentRoute: () => rootRouteImport,
 } as any)
 const OrderBookRoute = OrderBookRouteImport.update({
-  id: '/order-book',
-  path: '/order-book',
+  id: '/shop',
+  path: '/shop',
   getParentRoute: () => rootRouteImport,
 } as any)
 const MarketplaceRoute = MarketplaceRouteImport.update({
@@ -113,7 +113,7 @@ export interface FileRoutesByFullPath {
   '/admin': typeof AdminRoute
   '/auth': typeof AuthRoute
   '/marketplace': typeof MarketplaceRoute
-  '/order-book': typeof OrderBookRoute
+  '/shop': typeof OrderBookRoute
   '/post-listing': typeof PostListingRoute
   '/post-offer': typeof PostOfferRoute
   '/settings': typeof SettingsRoute
@@ -131,7 +131,7 @@ export interface FileRoutesByTo {
   '/admin': typeof AdminRoute
   '/auth': typeof AuthRoute
   '/marketplace': typeof MarketplaceRoute
-  '/order-book': typeof OrderBookRoute
+  '/shop': typeof OrderBookRoute
   '/post-listing': typeof PostListingRoute
   '/post-offer': typeof PostOfferRoute
   '/settings': typeof SettingsRoute
@@ -150,7 +150,7 @@ export interface FileRoutesById {
   '/admin': typeof AdminRoute
   '/auth': typeof AuthRoute
   '/marketplace': typeof MarketplaceRoute
-  '/order-book': typeof OrderBookRoute
+  '/shop': typeof OrderBookRoute
   '/post-listing': typeof PostListingRoute
   '/post-offer': typeof PostOfferRoute
   '/settings': typeof SettingsRoute
@@ -170,7 +170,7 @@ export interface FileRouteTypes {
     | '/admin'
     | '/auth'
     | '/marketplace'
-    | '/order-book'
+    | '/shop'
     | '/post-listing'
     | '/post-offer'
     | '/settings'
@@ -188,7 +188,7 @@ export interface FileRouteTypes {
     | '/admin'
     | '/auth'
     | '/marketplace'
-    | '/order-book'
+    | '/shop'
     | '/post-listing'
     | '/post-offer'
     | '/settings'
@@ -206,7 +206,7 @@ export interface FileRouteTypes {
     | '/admin'
     | '/auth'
     | '/marketplace'
-    | '/order-book'
+    | '/shop'
     | '/post-listing'
     | '/post-offer'
     | '/settings'
@@ -276,10 +276,10 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PostListingRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/order-book': {
-      id: '/order-book'
-      path: '/order-book'
-      fullPath: '/order-book'
+    '/shop': {
+      id: '/shop'
+      path: '/shop'
+      fullPath: '/shop'
       preLoaderRoute: typeof OrderBookRouteImport
       parentRoute: typeof rootRouteImport
     }

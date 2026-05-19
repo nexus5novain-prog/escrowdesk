@@ -18,6 +18,15 @@ async function loadProfiles(userIds: string[]) {
   return new Map((data ?? []).map((p) => [p.user_id, p as ProfileLite]));
 }
 
+async function loadListings(listingIds: string[]) {
+  if (!listingIds.length) return new Map<string, Record<string, unknown>>();
+  const { data } = await supabaseAdmin
+    .from("listings")
+    .select("id, name, description, category, contact_website, currency, amount")
+    .in("id", listingIds);
+  return new Map((data ?? []).map((row) => [row.id, row]));
+}
+
 async function getSellerPayoutAddress(userId: string, asset: Asset): Promise<{ address: string | null; chain: string | null }> {
   const { data } = await supabaseAdmin
     .from("profiles")
@@ -336,6 +345,8 @@ export const listMyEscrowGroups = createServerFn({ method: "GET" })
     const roleMap = new Map((mems ?? []).map((m) => [m.group_id, m.role]));
     const counterIds = Array.from(new Set((groups ?? []).flatMap((g) => [g.creator_id, g.counterparty_id]).filter((x): x is string => !!x && x !== context.userId)));
     const profileMap = await loadProfiles(counterIds);
+    const listingIds = Array.from(new Set((groups ?? []).flatMap((g) => g.listing_id ? [g.listing_id] : [])));
+    const listingMap = await loadListings(listingIds);
     for (const g of groups ?? []) {
       const s = String(g.status);
       if (s === "released") stats.successful++;
@@ -353,6 +364,7 @@ export const listMyEscrowGroups = createServerFn({ method: "GET" })
           ...g,
           my_role: roleMap.get(g.id),
           counterparty: otherId ? profileMap.get(otherId) ?? null : null,
+          listing: g.listing_id ? listingMap.get(g.listing_id) ?? null : null,
         };
       }),
     };

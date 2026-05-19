@@ -17,12 +17,12 @@ import { fmtCrypto, fmtFiat } from "@/lib/format";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
-export const Route = createFileRoute("/trade/$id")({ component: () => (<AuthGate><TradePage /></AuthGate>) });
+export const Route = createFileRoute("/escrow/trade/$id")({ component: () => (<AuthGate><EscrowTradePage /></AuthGate>) });
 
 const PHRASE_BUYER_SIGNS = "I AGREE TO TERMS AND CONDITIONS OF THE SELLER";
 const PHRASE_SELLER_SIGNS = "I AGREE TO TERMS AND CONDITIONS OF THE BUYER";
 
-function TradePage() {
+function EscrowTradePage() {
   const { id } = Route.useParams();
   const { user } = useAuth();
   const nav = useNavigate();
@@ -192,7 +192,7 @@ function TradePage() {
             {["awaiting_agreement","awaiting_seller_confirm","pending_payment","paid"].includes(t.status) && (
               <Button variant="destructive" onClick={() => { const r = prompt("Reason for dispute?"); if (r && r.length > 4) act(() => _dispute({ data: { trade_id: t.id, reason: r } }), "Dispute opened"); }}>Open dispute</Button>
             )}
-            <Button variant="ghost" onClick={() => nav({ to: "/trades" })}>Back</Button>
+            <Button variant="ghost" onClick={() => nav({ to: "/escrow" })}>Back</Button>
           </div>
         </div>
       </div>

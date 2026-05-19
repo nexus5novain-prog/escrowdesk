@@ -133,21 +133,40 @@ function EscrowGroupPage() {
     : null;
 
   return (
-    <div className="grid gap-6 lg:grid-cols-[2fr_1fr]">
-      <div className="space-y-4">
-        {/* Header */}
-        <div className="surface p-5">
-          <div className="flex items-center justify-between">
-            <div>
-              <div className="text-xs uppercase text-muted-foreground">Escrow group · {g.id.slice(0,8)}</div>
-              <div className="mt-1 font-mono text-xl">
-                {g.amount} {g.asset}
-                {g.fiat_amount ? <span className="text-sm text-muted-foreground"> · ≈ {g.fiat_amount} {g.fiat_currency}</span> : null}
-              </div>
-            </div>
-            <Badge variant="outline" className="uppercase">{g.status.replace(/_/g," ")}</Badge>
+    <div className="space-y-6">
+      <section className="surface rounded-3xl p-6">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <div className="text-xs uppercase tracking-[0.2em] text-muted-foreground">Escrow group</div>
+            <h1 className="text-3xl font-semibold">Trade room · {g.amount} {g.asset}</h1>
+            <p className="mt-2 text-sm text-muted-foreground">This is your escrow group for the trade. Chat, track deposits, accept invites, and sync with Telegram in one place.</p>
           </div>
-          <div className="mt-4 grid gap-2 text-sm">
+          <div className="flex flex-wrap items-center gap-2">
+            <Badge variant="outline" className="uppercase">{g.status.replace(/_/g," ")}</Badge>
+            {tgDeepLink && (
+              <a href={tgDeepLink} target="_blank" rel="noreferrer">
+                <Button variant="outline" size="sm">Open in Telegram</Button>
+              </a>
+            )}
+            <Link to="/escrow"><Button variant="ghost" size="sm">My escrow</Button></Link>
+          </div>
+        </div>
+      </section>
+      <div className="grid gap-6 lg:grid-cols-[2fr_1fr]">
+        <div className="space-y-4">
+          {/* Header */}
+          <div className="surface p-5">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="text-xs uppercase text-muted-foreground">Escrow group · {g.id.slice(0,8)}</div>
+                <div className="mt-1 font-mono text-xl">
+                  {g.amount} {g.asset}
+                  {g.fiat_amount ? <span className="text-sm text-muted-foreground"> · ≈ {g.fiat_amount} {g.fiat_currency}</span> : null}
+                </div>
+              </div>
+              <Badge variant="outline" className="uppercase">{g.status.replace(/_/g," ")}</Badge>
+            </div>
+            <div className="mt-4 grid gap-2 text-sm">
             <div className="flex justify-between"><span className="text-muted-foreground">Buyer (group creator)</span><span>{data.members.find((m) => m.role === "buyer")?.profile?.display_name ?? "—"}</span></div>
             <div className="flex justify-between"><span className="text-muted-foreground">Seller</span>
               <span>{data.members.find((m) => m.role === "seller")?.profile?.display_name ?? (g.invited_username ?? g.invited_telegram ?? "(awaiting acceptance)")}</span>
@@ -167,6 +186,19 @@ function EscrowGroupPage() {
         </div>
 
         <StatusTimeline status={g.status} />
+
+        {iAmPendingInvitee && (
+          <div className="surface p-5 border-emerald-200/60">
+            <div className="flex flex-col gap-3">
+              <div className="text-sm font-semibold">Pending invite</div>
+              <p className="text-sm text-muted-foreground">You were invited into this escrow group as a {myMember?.role}. Accept the invite to join the group and continue the transaction.</p>
+              <div className="flex flex-wrap gap-2">
+                <Button onClick={() => act(() => accept({ data: { group_id: g.id } }), "Invite accepted")}>Accept invite</Button>
+                <Button variant="outline" onClick={() => act(() => decline({ data: { group_id: g.id } }), "Invite declined")}>Decline invite</Button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {depositPanelVisible && (
           <div className="surface p-5 space-y-4">

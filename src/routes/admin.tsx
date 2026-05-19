@@ -39,7 +39,16 @@ function Admin() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-semibold">Admin</h1>
+      <section className="surface rounded-3xl p-6">
+        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+          <div>
+            <div className="text-xs uppercase tracking-[0.2em] text-muted-foreground">Admin dashboard</div>
+            <h1 className="text-3xl font-semibold">Manage disputes, trades, and Telegram bot routing</h1>
+            <p className="mt-2 text-sm text-muted-foreground">Keep the platform safe, resolve escalations, and configure Telegram connectivity for real-time trade routing.</p>
+          </div>
+        </div>
+      </section>
+      <div className="text-lg font-semibold">Admin tools and platform controls</div>
       <Tabs defaultValue="disputes">
         <TabsList>
           <TabsTrigger value="disputes">Disputes</TabsTrigger>
@@ -87,7 +96,7 @@ function DisputesPanel() {
         {rows.map((d) => (
           <div key={d.id} className="rounded-md border border-border/60 p-3">
             <div className="flex items-center justify-between text-xs text-muted-foreground">
-              <span>Trade <Link to="/trade/$id" params={{ id: d.trade_id }} className="font-mono underline">{d.trade_id.slice(0,8)}</Link> · {new Date(d.created_at).toLocaleString()}</span>
+              <span>Trade <Link to="/escrow/trade/$id" params={{ id: d.trade_id }} className="font-mono underline">{d.trade_id.slice(0,8)}</Link> · {new Date(d.created_at).toLocaleString()}</span>
               <Badge variant={d.status === "open" ? "destructive" : "secondary"}>{d.status}</Badge>
             </div>
             <p className="mt-1 text-sm">{d.reason}</p>
@@ -200,7 +209,7 @@ function TradesPanel() {
           <tbody>
             {trades.map((t) => (
               <tr key={t.id} className="border-t border-border/40">
-                <td className="py-2 font-mono"><Link to="/trade/$id" params={{ id: t.id }} className="underline">{t.id.slice(0,8)}</Link></td>
+                <td className="py-2 font-mono"><Link to="/escrow/trade/$id" params={{ id: t.id }} className="underline">{t.id.slice(0,8)}</Link></td>
                 <td>{t.buyer_name ?? "—"}</td>
                 <td>{t.seller_name ?? "—"}</td>
                 <td>{t.asset}</td>

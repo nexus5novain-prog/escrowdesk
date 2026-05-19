@@ -43,11 +43,11 @@ export function SiteHeader() {
         <nav className="flex items-center gap-1 text-sm">
           <Link to="/" className="px-3 py-2 text-muted-foreground hover:text-foreground" activeProps={{ className: "px-3 py-2 text-foreground" }}>Home</Link>
           <Link to="/marketplace" className="px-3 py-2 text-muted-foreground hover:text-foreground" activeProps={{ className: "px-3 py-2 text-foreground" }}>Marketplace</Link>
-          <Link to="/order-book" className="px-3 py-2 text-muted-foreground hover:text-foreground" activeProps={{ className: "px-3 py-2 text-foreground" }}>Order book</Link>
+          <Link to="/shop" className="px-3 py-2 text-muted-foreground hover:text-foreground" activeProps={{ className: "px-3 py-2 text-foreground" }}>Shop</Link>
           {user && (
             <>
-              <Link to="/trades" className="px-3 py-2 text-muted-foreground hover:text-foreground" activeProps={{ className: "px-3 py-2 text-foreground" }}>Trades</Link>
-              <Link to="/escrow/new" className="px-3 py-2 text-muted-foreground hover:text-foreground" activeProps={{ className: "px-3 py-2 text-foreground" }}>Escrow</Link>
+              <Link to="/escrow" className="px-3 py-2 text-muted-foreground hover:text-foreground" activeProps={{ className: "px-3 py-2 text-foreground" }}>Escrow</Link>
+              <Link to="/wallet" className="px-3 py-2 text-muted-foreground hover:text-foreground" activeProps={{ className: "px-3 py-2 text-foreground" }}>Wallet</Link>
               <Link to="/wallet" className="px-3 py-2 text-muted-foreground hover:text-foreground" activeProps={{ className: "px-3 py-2 text-foreground" }}>Wallet</Link>
               <Link to="/settings" className="px-3 py-2 text-muted-foreground hover:text-foreground" activeProps={{ className: "px-3 py-2 text-foreground" }}>Settings</Link>
               {isStaff && (

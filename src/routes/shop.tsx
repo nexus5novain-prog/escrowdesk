@@ -8,7 +8,15 @@ import { useServerFn } from "@tanstack/react-start";
 
 import * as StoreFns from "@/lib/store.functions";
 
-export const Route = createFileRoute("/order-book")({ component: StorePage });
+export const Route = createFileRoute("/shop")({
+  head: () => ({
+    meta: [
+      { title: "Shop — EscrowDesk" },
+      { name: "description", content: "Browse real ecommerce inventory and buy digital goods, cards, and services from EscrowDesk Shop." },
+    ],
+  }),
+  component: StorePage,
+});
 
 type Product = {
   id: string;
@@ -65,13 +73,21 @@ function StorePage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Store</h1>
-        <div className="flex gap-2">
-          <Link to="/">Back</Link>
-          {isAdmin && <Link to="/admin">Admin</Link>}
+      <section className="surface rounded-3xl p-6">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <div className="text-xs uppercase tracking-[0.2em] text-muted-foreground">Shop</div>
+            <h1 className="text-3xl font-semibold">EscrowDesk Shop</h1>
+            <p className="mt-2 text-sm text-muted-foreground">
+              A real ecommerce storefront for digital goods, cards, and services. Browse inventory, filter by category, and checkout through escrow.
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Link to="/">Back</Link>
+            {isAdmin && <Link to="/admin">Admin</Link>}
+          </div>
         </div>
-      </div>
+      </section>
 
       <div className="grid gap-4 md:grid-cols-3">
         <Card className="p-4">
