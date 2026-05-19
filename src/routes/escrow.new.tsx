@@ -8,7 +8,6 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import { Users2, Send } from "lucide-react";
@@ -23,7 +22,7 @@ function NewEscrow() {
   const { listing } = Route.useSearch();
   const create = useServerFn(createEscrowGroup);
   const [mode, setMode] = useState<"site"|"telegram">("site");
-  const [asset, setAsset] = useState<"BTC"|"USDT"|"USDC"|"ETH">("USDT");
+  const asset = "BTC" as const;
   const [amount, setAmount] = useState("");
   const [fiat, setFiat] = useState("");
   const [username, setUsername] = useState("");
@@ -101,15 +100,7 @@ function NewEscrow() {
         <div className="grid gap-3 sm:grid-cols-3">
           <div>
             <Label className="text-xs uppercase text-muted-foreground">Asset</Label>
-            <Select value={asset} onValueChange={(v) => setAsset(v as typeof asset)}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="BTC">BTC</SelectItem>
-                <SelectItem value="USDT">USDT (TRC20)</SelectItem>
-                <SelectItem value="USDC">USDC</SelectItem>
-                <SelectItem value="ETH">ETH</SelectItem>
-              </SelectContent>
-            </Select>
+            <div className="rounded-md border border-input bg-background px-3 py-2 text-sm font-medium">BTC</div>
           </div>
           <div>
             <Label className="text-xs uppercase text-muted-foreground">Crypto amount</Label>

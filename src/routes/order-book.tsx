@@ -1,137 +1,218 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
-import { useServerFn } from "@tanstack/react-start";
-import { useQuery } from "@tanstack/react-query";
-import { listOffers } from "@/lib/escrow.functions";
-import { fmtFiat, fmtCrypto } from "@/lib/format";
-import { useAuth } from "@/hooks/use-auth";
+import { createFileRoute, Link } from "@tanstack/react-router";
+import React, { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowRightLeft, ShieldCheck, Send, Zap } from "lucide-react";
+import { Card } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { supabase } from "@/integrations/supabase/client";
+import { useServerFn } from "@tanstack/react-start";
 
-export const Route = createFileRoute("/order-book")({ component: Home });
+import * as StoreFns from "@/lib/store.functions";
 
-function Home() {
-  const { user } = useAuth();
-  const nav = useNavigate();
-  const [side, setSide] = useState<"buy" | "sell">("buy");
-  const [asset, setAsset] = useState<"USDT" | "BTC">("USDT");
-  const [fiat, setFiat] = useState<string>("USD");
-  const fetchOffers = useServerFn(listOffers);
+export const Route = createFileRoute("/order-book")({ component: StorePage });
 
-  const { data, refetch, isFetching } = useQuery({
-    queryKey: ["offers", side, asset, fiat],
-    // From buyer's perspective: if I want to "buy" crypto, I list "sell" offers and vice versa.
-    queryFn: () => fetchOffers({ data: { side: side === "buy" ? "sell" : "buy", asset, fiat } }),
-  });
+type Product = {
+  id: string;
+  category: string;
+  card_number?: string | null;
+  card_user?: string | null;
+  card_type?: string | null;
+  card_bank?: string | null;
+  card_address?: string | null;
+  price_usd: number;
+};
 
-  useEffect(() => { const t = setInterval(() => refetch(), 15000); return () => clearInterval(t); }, [refetch]);
+function blurCardNumber(n: string | undefined | null) {
+  if (!n) return "—";
+  const s = String(n).replace(/\s+/g, "");
+  if (s.length <= 6) return s;
+  return s.slice(0, 6) + " •••• ••••";
+}
+
+function StorePage() {
+  const [products, setProducts] = useState<Product[]>([]);
+  const [q, setQ] = useState("");
+  const [category, setCategory] = useState("BIN");
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  const fetchProducts = useServerFn(StoreFns.listProducts);
+  const createProductFn = useServerFn(StoreFns.createProduct);
+  const deleteProductFn = useServerFn(StoreFns.deleteProduct);
+  const updateProductFn = useServerFn(StoreFns.updateProduct);
+
+  async function load() {
+    const res = await fetchProducts({});
+    setProducts((res?.products ?? []) as Product[]);
+  }
+
+  useEffect(() => {
+    load();
+    (async () => {
+      try {
+        const session = await supabase.auth.getSession();
+        const uid = session.data.session?.user?.id;
+        if (!uid) return;
+        const { data } = await supabase.from("user_roles").select("role").eq("user_id", uid);
+        setIsAdmin((data ?? []).some((r: any) => r.role === "admin"));
+      } catch (e) {
+        // ignore
+      }
+    })();
+  }, []);
+
+  const categories = ["BIN", "Enroll", "Scanner", "Exchange"];
+
+  const visible = products.filter((p) => (category ? p.category === category : true) && (!q ? true : String(p.card_number ?? "").includes(q)));
 
   return (
-    <div className="space-y-10">
-      <Hero authed={!!user} />
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-semibold">Store</h1>
+        <div className="flex gap-2">
+          <Link to="/">Back</Link>
+          {isAdmin && <Link to="/admin">Admin</Link>}
+        </div>
+      </div>
 
-      <section className="surface p-5">
-        <div className="mb-4 flex flex-wrap items-center gap-3">
-          <h2 className="text-lg font-semibold">Live order book</h2>
-          <Badge variant="secondary" className="font-mono">{data?.offers.length ?? 0} offers</Badge>
-          <div className="ml-auto flex flex-wrap items-center gap-2">
-            <div className="flex rounded-md border border-border p-0.5">
-              <button onClick={() => setSide("buy")} className={`rounded px-3 py-1 text-xs font-medium ${side==="buy"?"bg-primary text-primary-foreground":"text-muted-foreground"}`}>Buy</button>
-              <button onClick={() => setSide("sell")} className={`rounded px-3 py-1 text-xs font-medium ${side==="sell"?"bg-primary text-primary-foreground":"text-muted-foreground"}`}>Sell</button>
-            </div>
-            <Select value={asset} onValueChange={(v) => setAsset(v as "USDT" | "BTC")}>
-              <SelectTrigger className="w-24"><SelectValue /></SelectTrigger>
-              <SelectContent><SelectItem value="USDT">USDT</SelectItem><SelectItem value="BTC">BTC</SelectItem></SelectContent>
-            </Select>
-            <Select value={fiat} onValueChange={setFiat}>
-              <SelectTrigger className="w-24"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                {["USD","EUR","NGN","GBP"].map((f) => <SelectItem key={f} value={f}>{f}</SelectItem>)}
-              </SelectContent>
-            </Select>
+      <div className="grid gap-4 md:grid-cols-3">
+        <Card className="p-4">
+          <h2 className="text-lg font-medium">Categories</h2>
+          <div className="mt-3 flex flex-col gap-2">
+            {categories.map((c) => (
+              <button key={c} onClick={() => setCategory(c)} className={`text-left ${c === category ? "font-semibold" : "text-muted-foreground"}`}>{c}</button>
+            ))}
           </div>
-        </div>
+        </Card>
 
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="text-left text-xs uppercase text-muted-foreground">
-              <tr className="border-b border-border/60">
-                <th className="px-3 py-2">Trader</th>
-                <th className="px-3 py-2">Price</th>
-                <th className="px-3 py-2">Available</th>
-                <th className="px-3 py-2">Limits</th>
-                <th className="px-3 py-2">Payment</th>
-                <th className="px-3 py-2"></th>
-              </tr>
-            </thead>
-            <tbody className="font-mono">
-              {(data?.offers ?? []).map((o: Record<string, unknown> & { profiles?: { display_name: string; trades_completed: number } }) => (
-                <tr key={String(o.id)} className="border-b border-border/30 hover:bg-secondary/30">
-                  <td className="px-3 py-3">
-                    <div className="font-display font-medium">{o.profiles?.display_name ?? "—"}</div>
-                    <div className="text-[11px] text-muted-foreground">{o.profiles?.trades_completed ?? 0} trades</div>
-                  </td>
-                  <td className="px-3 py-3 text-primary">{fmtFiat(Number(o.price), String(o.fiat_currency))}<span className="ml-1 text-muted-foreground">/{String(o.asset)}</span></td>
-                  <td className="px-3 py-3">{fmtCrypto(Number(o.available_crypto), String(o.asset))}</td>
-                  <td className="px-3 py-3 text-xs">{fmtFiat(Number(o.min_amount), String(o.fiat_currency))} – {fmtFiat(Number(o.max_amount), String(o.fiat_currency))}</td>
-                  <td className="px-3 py-3"><div className="flex flex-wrap gap-1">{(o.payment_method_types as string[] ?? []).slice(0,3).map((p) => <Badge key={p} variant="outline" className="text-[10px]">{p}</Badge>)}</div></td>
-                  <td className="px-3 py-3 text-right">
-                    <Button size="sm" onClick={() => user ? nav({ to: "/offer/$id", params: { id: String(o.id) } }) : nav({ to: "/auth" })}>
-                      {side === "buy" ? "Buy" : "Sell"}
-                    </Button>
-                  </td>
-                </tr>
-              ))}
-              {!isFetching && (data?.offers.length ?? 0) === 0 && (
-                <tr><td colSpan={6} className="px-3 py-12 text-center text-sm text-muted-foreground">No offers in this market yet.</td></tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </section>
+        <Card className="p-4 md:col-span-2">
+          <div className="flex items-center gap-3">
+            <Input placeholder="Search by BIN or card" value={q} onChange={(e: any) => setQ(e.target.value)} />
+            <Button onClick={() => setQ("")}>Clear</Button>
+          </div>
+
+          <div className="mt-4 grid gap-3 md:grid-cols-2">
+            {visible.map((p, i) => (
+              <Card key={p.id} className="p-4">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <div className="text-xs text-muted-foreground">Card</div>
+                    <div className="font-mono mt-1">{i < 6 ? (p.card_number ?? "—") : blurCardNumber(p.card_number)}</div>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-xs text-muted-foreground">Price (USD)</div>
+                    <div className="font-semibold">${p.price_usd.toFixed(2)}</div>
+                  </div>
+                </div>
+                <div className="mt-3 grid grid-cols-2 gap-2 text-sm text-muted-foreground">
+                  <div>Owner: <span className="text-foreground font-medium">{p.card_user ?? "—"}</span></div>
+                  <div>Type: <span className="text-foreground font-medium">{p.card_type ?? "—"}</span></div>
+                  <div>Bank: <span className="text-foreground font-medium">{p.card_bank ?? "—"}</span></div>
+                  <div>Address: <span className="text-foreground font-medium">{p.card_address ?? "—"}</span></div>
+                </div>
+                <div className="mt-4 flex justify-end gap-2">
+                  <Button variant="outline">Buy</Button>
+                  {isAdmin && <Button onClick={async () => { await deleteProductFn({ id: p.id }); load(); }}>Delete</Button>}
+                </div>
+              </Card>
+            ))}
+            {!visible.length && <div className="text-sm text-muted-foreground">No products found.</div>}
+          </div>
+        </Card>
+      </div>
+
+      {isAdmin && (
+        <Card className="p-4">
+          <h2 className="text-lg font-medium">Admin — Create product</h2>
+          <AdminCreate onCreated={load} />
+        </Card>
+      )}
+      {isAdmin && (
+        <Card className="p-4">
+          <h2 className="text-lg font-medium">Admin — Inventory</h2>
+          <AdminInventory products={products} onUpdated={load} onDeleted={load} onCreated={load} updateFn={updateProductFn} deleteFn={deleteProductFn} />
+        </Card>
+      )}
     </div>
   );
 }
 
-function Hero({ authed }: { authed: boolean }) {
+function AdminCreate({ onCreated }: { onCreated: () => void }) {
+  const [creating, setCreating] = useState(false);
+  const [form, setForm] = useState({ category: "BIN", card_number: "", card_user: "", card_type: "", card_bank: "", card_address: "", price_usd: 0 });
+
+      async function submit(e?: React.FormEvent) {
+    e?.preventDefault();
+    setCreating(true);
+    try {
+      await createProductFn({ product: form });
+      setForm({ category: "BIN", card_number: "", card_user: "", card_type: "", card_bank: "", card_address: "", price_usd: 0 });
+      onCreated();
+    } finally {
+      setCreating(false);
+    }
+  }
+
   return (
-    <section className="surface relative overflow-hidden p-8 md:p-12">
-      <div className="absolute inset-0 -z-10 opacity-30" style={{ background: "radial-gradient(circle at 20% 20%, color-mix(in oklab, var(--primary) 35%, transparent), transparent 60%)" }} />
-      <div className="max-w-3xl space-y-5">
-        <Badge variant="outline" className="font-mono text-[11px]">v1 · Ledger escrow · Telegram-native</Badge>
-        <h1 className="text-4xl font-semibold leading-tight md:text-5xl">
-          Peer-to-peer crypto trading,<br /><span className="text-primary">held in secure escrow.</span>
-        </h1>
-        <p className="text-muted-foreground md:text-lg">
-          Post offers, match buyers and sellers, and let our atomic escrow protect both sides — fully operable from Telegram.
-        </p>
-        <div className="flex flex-wrap gap-3">
-          {authed ? (
-            <>
-              <Link to="/post-offer"><Button size="lg" className="gap-2"><ArrowRightLeft className="h-4 w-4" /> Post an offer</Button></Link>
-              <Link to="/settings"><Button size="lg" variant="outline" className="gap-2"><Send className="h-4 w-4" /> Link Telegram</Button></Link>
-            </>
-          ) : (
-            <Link to="/auth"><Button size="lg" className="gap-2"><Zap className="h-4 w-4" /> Get started</Button></Link>
-          )}
-        </div>
-        <div className="grid gap-4 pt-4 md:grid-cols-3">
-          <Feature icon={<ShieldCheck className="h-4 w-4 text-primary" />} title="Atomic escrow" desc="Server-side SQL functions lock and release funds with no race conditions." />
-          <Feature icon={<Send className="h-4 w-4 text-primary" />} title="Telegram-first" desc="Get trade alerts, release funds, open disputes — straight from the bot." />
-          <Feature icon={<Zap className="h-4 w-4 text-primary" />} title="Real-time" desc="Live chat and order updates over websockets." />
-        </div>
+    <form onSubmit={submit} className="mt-3 grid gap-2 md:grid-cols-3">
+      <Input value={form.category} onChange={(e: any) => setForm((s) => ({ ...s, category: e.target.value }))} />
+      <Input placeholder="Card number" value={form.card_number} onChange={(e: any) => setForm((s) => ({ ...s, card_number: e.target.value }))} />
+      <Input placeholder="Owner" value={form.card_user} onChange={(e: any) => setForm((s) => ({ ...s, card_user: e.target.value }))} />
+      <Input placeholder="Type" value={form.card_type} onChange={(e: any) => setForm((s) => ({ ...s, card_type: e.target.value }))} />
+      <Input placeholder="Bank" value={form.card_bank} onChange={(e: any) => setForm((s) => ({ ...s, card_bank: e.target.value }))} />
+      <Input placeholder="Address" value={form.card_address} onChange={(e: any) => setForm((s) => ({ ...s, card_address: e.target.value }))} />
+      <Input placeholder="Price USD" type="number" value={String(form.price_usd)} onChange={(e: any) => setForm((s) => ({ ...s, price_usd: Number(e.target.value) }))} />
+      <div className="md:col-span-3 flex justify-end">
+        <Button type="submit" disabled={creating}>Create</Button>
       </div>
-    </section>
+    </form>
   );
 }
 
-function Feature({ icon, title, desc }: { icon: React.ReactNode; title: string; desc: string }) {
+function AdminInventory({ products, onUpdated, onDeleted, onCreated, updateFn, deleteFn }: { products: Product[]; onUpdated: () => void; onDeleted: () => void; onCreated: () => void; updateFn: any; deleteFn: any }) {
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [form, setForm] = useState<any>(null);
+
+  useEffect(() => { if (!editingId) setForm(null); }, [editingId]);
+
+  async function startEdit(p: Product) {
+    setEditingId(p.id);
+    setForm({ category: p.category, card_number: p.card_number, card_user: p.card_user, card_type: p.card_type, card_bank: p.card_bank, card_address: p.card_address, price_usd: p.price_usd });
+  }
+
+  async function save() {
+    if (!editingId) return;
+    await updateFn({ id: editingId, patch: form });
+    setEditingId(null);
+    onUpdated();
+  }
+
   return (
-    <div className="rounded-lg border border-border/60 bg-secondary/20 p-4">
-      <div className="mb-2 flex items-center gap-2 text-sm font-semibold">{icon}{title}</div>
-      <p className="text-xs text-muted-foreground">{desc}</p>
+    <div className="mt-3 space-y-2">
+      {products.map((p) => (
+        <div key={p.id} className="flex items-center justify-between rounded-md border border-border/60 p-3">
+          <div className="flex-1">
+            <div className="font-mono text-sm">{p.card_number ? (p.card_number.length > 12 ? `${p.card_number.slice(0,6)}••••${p.card_number.slice(-4)}` : p.card_number) : "—"}</div>
+            <div className="text-xs text-muted-foreground">{p.card_user ?? "—"} • {p.card_type ?? "—"} • {p.card_bank ?? "—"}</div>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="text-sm font-semibold">${p.price_usd.toFixed(2)}</div>
+            <div>
+              {editingId === p.id ? (
+                <div className="flex gap-2">
+                  <Input value={form?.price_usd ?? ""} type="number" onChange={(e: any) => setForm((s: any) => ({ ...s, price_usd: Number(e.target.value) }))} />
+                  <Button onClick={save}>Save</Button>
+                  <Button variant="outline" onClick={() => setEditingId(null)}>Cancel</Button>
+                </div>
+              ) : (
+                <div className="flex gap-2">
+                  <Button onClick={() => startEdit(p)}>Edit</Button>
+                  <Button variant="destructive" onClick={async () => { if (confirm("Delete product?")) { await deleteFn({ id: p.id }); onDeleted(); } }}>Delete</Button>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      ))}
+      {!products.length && <div className="text-sm text-muted-foreground">No products in inventory.</div>}
     </div>
   );
 }

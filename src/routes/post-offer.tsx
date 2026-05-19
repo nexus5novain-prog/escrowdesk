@@ -14,7 +14,7 @@ export const Route = createFileRoute("/post-offer")({ component: () => (<AuthGat
 function Page() {
   const fn = useServerFn(createOffer);
   const nav = useNavigate();
-  const [f, setF] = useState({ side: "sell" as "buy"|"sell", asset: "USDT" as "USDT"|"BTC", fiat_currency: "USD", price: "1.00", min_amount: "10", max_amount: "1000", available_crypto: "100", payment_method_types: "bank", terms: "" });
+  const [f, setF] = useState({ side: "sell" as "buy"|"sell", asset: "BTC" as "BTC", fiat_currency: "USD", price: "1.00", min_amount: "10", max_amount: "1000", available_crypto: "100", payment_method_types: "bank", terms: "" });
   const submit = async (e: React.FormEvent) => { e.preventDefault();
     try {
       await fn({ data: {
@@ -32,7 +32,7 @@ function Page() {
       <h1 className="text-xl font-semibold">Post an offer</h1>
       <div className="grid grid-cols-2 gap-3">
         <div><Label>Side</Label><select value={f.side} onChange={(e) => setF({...f, side: e.target.value as "buy"|"sell"})} className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"><option value="sell">I sell crypto</option><option value="buy">I buy crypto</option></select></div>
-        <div><Label>Asset</Label><select value={f.asset} onChange={(e) => setF({...f, asset: e.target.value as "USDT"|"BTC"})} className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"><option>USDT</option><option>BTC</option></select></div>
+        <div><Label>Asset</Label><div className="rounded-md border border-input bg-background px-3 py-2 text-sm font-medium">BTC</div></div>
         <div><Label>Fiat</Label><Input value={f.fiat_currency} onChange={(e) => setF({...f, fiat_currency: e.target.value.toUpperCase()})} /></div>
         <div><Label>Price per unit</Label><Input value={f.price} onChange={(e) => setF({...f, price: e.target.value})} /></div>
         <div><Label>Min (fiat)</Label><Input value={f.min_amount} onChange={(e) => setF({...f, min_amount: e.target.value})} /></div>

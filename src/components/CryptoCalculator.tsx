@@ -4,15 +4,15 @@ import { Button } from "@/components/ui/button";
 import { Loader2, RefreshCw, ArrowLeftRight } from "lucide-react";
 
 type Rates = Record<string, number>; // USD per 1 unit of asset
-const ASSETS = ["BTC", "ETH", "USDT", "USDC"] as const;
+const ASSETS = ["BTC"] as const;
 const COINGECKO_IDS: Record<(typeof ASSETS)[number], string> = {
-  BTC: "bitcoin", ETH: "ethereum", USDT: "tether", USDC: "usd-coin",
+  BTC: "bitcoin",
 };
 
 export function CryptoCalculator({ className = "" }: { className?: string }) {
   const [rates, setRates] = useState<Rates | null>(null);
   const [loading, setLoading] = useState(false);
-  const [asset, setAsset] = useState<(typeof ASSETS)[number]>("BTC");
+  const [asset] = useState<(typeof ASSETS)[number]>("BTC");
   const [usd, setUsd] = useState<string>("100");
   const [crypto, setCrypto] = useState<string>("");
   const [direction, setDirection] = useState<"usd" | "crypto">("usd");
@@ -86,13 +86,12 @@ export function CryptoCalculator({ className = "" }: { className?: string }) {
 
       <div className="mt-3 flex flex-wrap gap-1">
         {ASSETS.map((a) => (
-          <button
+          <div
             key={a}
-            onClick={() => setAsset(a)}
-            className={`rounded-md px-2.5 py-1 text-xs font-mono transition ${asset === a ? "bg-primary text-primary-foreground" : "bg-secondary/40 text-muted-foreground hover:bg-secondary/60"}`}
+            className="rounded-md px-2.5 py-1 text-xs font-mono bg-primary/10 text-primary"
           >
             {a} {rates?.[a] ? `· $${rates[a].toLocaleString(undefined, { maximumFractionDigits: 2 })}` : ""}
-          </button>
+          </div>
         ))}
       </div>
     </div>

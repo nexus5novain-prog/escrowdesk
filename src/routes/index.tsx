@@ -129,7 +129,7 @@ function FloatingBots() {
 function Stats() {
   const stats = [
     { label: "Avg. settlement", value: "< 12 min", icon: Zap },
-    { label: "Supported assets", value: "BTC · ETH · USDT · USDC", icon: Wallet },
+    { label: "Supported assets", value: "BTC only", icon: Wallet },
     { label: "Mediator coverage", value: "24 / 7", icon: ShieldCheck },
     { label: "Telegram-native", value: "100%", icon: Send },
   ];
@@ -186,7 +186,7 @@ function Features() {
     { title: "Live trades dashboard", body: "Open, pending, successful, and failed trades — all counted live across your portfolio in real time.", icon: Zap },
     { title: "On-platform messaging", body: "Every trade has its own room with the mediator bot, evidence uploads, and timestamped chat.", icon: MessageSquare },
     { title: "Telegram control surface", body: "Link your account and run trades, deposits, releases, and disputes from the bot — wherever you are.", icon: Send },
-    { title: "Multi-chain payouts", body: "BTC, ETH, USDT (ERC20/TRC20), and USDC payout addresses on your profile — buyers fund where you want it.", icon: Wallet },
+    { title: "BTC-only payouts", body: "Add a Bitcoin payout address to your profile and receive all escrow settlements in BTC.", icon: Wallet },
     { title: "Global by default", body: "Borderless P2P, currency-agnostic listings, fiat valuations on every quote.", icon: Globe },
   ];
   return (

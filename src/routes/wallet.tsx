@@ -9,8 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ShieldCheck, Crown, Wallet as WalletIcon, Bitcoin, CircleDollarSign, ArrowDownRight, ArrowUpRight, TrendingUp } from "lucide-react";
+import { ShieldCheck, Crown, Wallet as WalletIcon, Bitcoin, ArrowDownRight, ArrowUpRight, TrendingUp } from "lucide-react";
 import { toast } from "sonner";
 import { fmtCrypto, fmtFiat } from "@/lib/format";
 import { supabase } from "@/integrations/supabase/client";
@@ -19,10 +18,7 @@ import { useAuth } from "@/hooks/use-auth";
 export const Route = createFileRoute("/wallet")({ component: () => (<AuthGate><Wallet /></AuthGate>) });
 
 const COINS = [
-  { key: "btc",  label: "BTC",          chainLabel: "Bitcoin",     placeholder: "Paste your BTC address (bc1… / 3… / 1…)" },
-  { key: "usdt", label: "USDT (TRC20)", chainLabel: "Tron / TRC20", placeholder: "Paste your USDT TRC20 address (T…)" },
-  { key: "usdc", label: "USDC",         chainLabel: "Choose chain", placeholder: "Paste your USDC address" },
-  { key: "eth",  label: "ETH",          chainLabel: "Ethereum",    placeholder: "Paste your ETH address (0x…)" },
+  { key: "btc", label: "BTC", chainLabel: "Bitcoin", placeholder: "Paste your BTC address (bc1… / 3… / 1…)" },
 ] as const;
 
 function Wallet() {
@@ -50,20 +46,12 @@ function Wallet() {
   }, [user, qc]);
 
   const [btc, setBtc] = useState("");
-  const [usdt, setUsdt] = useState("");
-  const [usdc, setUsdc] = useState("");
-  const [usdcChain, setUsdcChain] = useState<"ERC20"|"TRC20">("ERC20");
-  const [eth, setEth] = useState("");
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     const p = data?.profile as Record<string, string | null> | undefined;
     if (p) {
       setBtc(p.wallet_address_btc ?? "");
-      setUsdt(p.wallet_address_usdt ?? "");
-      setUsdc(p.wallet_address_usdc ?? "");
-      setUsdcChain(((p.wallet_address_usdc_chain ?? "ERC20") as "ERC20"|"TRC20"));
-      setEth(p.wallet_address_eth ?? "");
     }
   }, [data?.profile]);
 
@@ -72,10 +60,6 @@ function Wallet() {
     try {
       await saveAddrs({ data: {
         wallet_address_btc: btc,
-        wallet_address_usdt: usdt,
-        wallet_address_usdc: usdc,
-        wallet_address_usdc_chain: usdcChain,
-        wallet_address_eth: eth,
       } });
       toast.success("Payout addresses saved");
       refetch();
@@ -141,25 +125,8 @@ function Wallet() {
           Paste the on-chain addresses where coin will be released and accepted after successful trades.
           These addresses are visible to your trade counterparty inside the trade chat.
         </p>
-        <div className="mt-4 grid gap-4 md:grid-cols-2">
+        <div className="mt-4 grid gap-4 md:grid-cols-1">
           <AddrField label="BTC" icon={<Bitcoin className="h-3.5 w-3.5" />} value={btc} onChange={setBtc} placeholder={COINS[0].placeholder} />
-          <AddrField label="USDT (TRC20)" icon={<CircleDollarSign className="h-3.5 w-3.5" />} value={usdt} onChange={setUsdt} placeholder={COINS[1].placeholder} />
-          <div className="space-y-1.5">
-            <Label className="flex items-center gap-1.5 text-xs uppercase tracking-wider text-muted-foreground">
-              <CircleDollarSign className="h-3.5 w-3.5" /> USDC
-            </Label>
-            <div className="flex gap-2">
-              <Select value={usdcChain} onValueChange={(v) => setUsdcChain(v as "ERC20"|"TRC20")}>
-                <SelectTrigger className="w-32"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="ERC20">ERC20</SelectItem>
-                  <SelectItem value="TRC20">TRC20</SelectItem>
-                </SelectContent>
-              </Select>
-              <Input value={usdc} onChange={(e) => setUsdc(e.target.value)} placeholder={COINS[2].placeholder} className="font-mono" />
-            </div>
-          </div>
-          <AddrField label="ETH" icon={<CircleDollarSign className="h-3.5 w-3.5" />} value={eth} onChange={setEth} placeholder={COINS[3].placeholder} />
         </div>
         <div className="mt-4 flex justify-end">
           <Button onClick={save} disabled={saving}>{saving ? "Saving…" : "Save addresses"}</Button>

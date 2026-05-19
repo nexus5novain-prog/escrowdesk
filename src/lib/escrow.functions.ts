@@ -21,7 +21,7 @@ export const listOffers = createServerFn({ method: "GET" })
   .inputValidator(
     z.object({
       side: z.enum(["buy", "sell"]).optional(),
-      asset: z.enum(["USDT", "BTC"]).optional(),
+      asset: z.enum(["BTC"]).optional(),
       fiat: z.string().max(8).optional(),
     }).optional().transform((v) => v ?? {}),
   )
@@ -50,7 +50,7 @@ export const createOffer = createServerFn({ method: "POST" })
   .inputValidator(
     z.object({
       side: z.enum(["buy", "sell"]),
-      asset: z.enum(["USDT", "BTC"]),
+      asset: z.enum(["BTC"]),
       fiat_currency: z.string().min(3).max(8),
       price: z.number().positive(),
       min_amount: z.number().positive(),
@@ -211,7 +211,7 @@ export const sendMessage = createServerFn({ method: "POST" })
 // ---------- Wallet (simulated deposit/withdraw) ----------
 export const depositSimulated = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator(z.object({ asset: z.enum(["USDT","BTC"]), amount: z.number().positive().max(1_000_000) }))
+  .inputValidator(z.object({ asset: z.enum(["BTC"]), amount: z.number().positive().max(1_000_000) }))
   .handler(async ({ data, context }) => {
     const { error } = await supabaseAdmin.rpc("credit_wallet", {
       _user: context.userId, _asset: data.asset, _amount: data.amount, _note: "Test deposit",
@@ -462,7 +462,7 @@ export const adminUnlinkTelegram = createServerFn({ method: "POST" })
 
 export const adminCreditWallet = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator(z.object({ user_id: z.string().uuid(), asset: z.enum(["USDT","BTC"]), amount: z.number() }))
+  .inputValidator(z.object({ user_id: z.string().uuid(), asset: z.enum(["BTC"]), amount: z.number() }))
   .handler(async ({ data, context }) => {
     const { isAdmin } = await assertAdmin(context.userId);
     if (!isAdmin) throw new Error("Admin only");
@@ -685,19 +685,11 @@ export const updateWalletAddresses = createServerFn({ method: "POST" })
   .inputValidator(
     z.object({
       wallet_address_btc: z.string().trim().max(120).optional().nullable(),
-      wallet_address_usdt: z.string().trim().max(120).optional().nullable(),
-      wallet_address_usdc: z.string().trim().max(120).optional().nullable(),
-      wallet_address_usdc_chain: z.enum(["ERC20","TRC20"]).optional(),
-      wallet_address_eth: z.string().trim().max(120).optional().nullable(),
     }),
   )
   .handler(async ({ data, context }) => {
     const patch: Record<string, string | null> = {};
     if (data.wallet_address_btc !== undefined) patch.wallet_address_btc = data.wallet_address_btc || null;
-    if (data.wallet_address_usdt !== undefined) patch.wallet_address_usdt = data.wallet_address_usdt || null;
-    if (data.wallet_address_usdc !== undefined) patch.wallet_address_usdc = data.wallet_address_usdc || null;
-    if (data.wallet_address_usdc_chain !== undefined) patch.wallet_address_usdc_chain = data.wallet_address_usdc_chain;
-    if (data.wallet_address_eth !== undefined) patch.wallet_address_eth = data.wallet_address_eth || null;
     const { error } = await supabaseAdmin
       .from("profiles").update(patch as never).eq("user_id", context.userId);
     if (error) throw new Error(error.message);

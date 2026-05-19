@@ -4,16 +4,16 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { tgSendMessage } from "./telegram.server";
 
-type ProfileLite = { user_id: string; display_name: string; telegram_user_id: number | null; telegram_username: string | null };
+type ProfileLite = { user_id: string; display_name: string; telegram_user_id: number | null; telegram_username: string | null; wallet_address_btc: string | null };
 
-const ASSETS = ["BTC", "USDT", "USDC", "ETH"] as const;
+const ASSETS = ["BTC"] as const;
 type Asset = typeof ASSETS[number];
 
 async function loadProfiles(userIds: string[]) {
   if (!userIds.length) return new Map<string, ProfileLite>();
   const { data } = await supabaseAdmin
     .from("profiles")
-    .select("user_id, display_name, telegram_user_id, telegram_username")
+    .select("user_id, display_name, telegram_user_id, telegram_username, wallet_address_btc")
     .in("user_id", userIds);
   return new Map((data ?? []).map((p) => [p.user_id, p as ProfileLite]));
 }

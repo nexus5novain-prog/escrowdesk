@@ -12,6 +12,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { ShieldAlert, Send, ExternalLink, Hash, CheckCircle2, CircleDot, Clock, XCircle } from "lucide-react";
@@ -115,6 +116,14 @@ function EscrowGroupPage() {
   const sellerPending = !!sellerMember && !sellerMember.accepted_at && !sellerMember.declined_at;
   const iAmPendingInvitee = !!myMember && !myMember.accepted_at && !myMember.declined_at && myMember.role !== "buyer";
 
+  const buyerProfile = data.members.find((m) => m.role === "buyer")?.profile;
+  const sellerProfile = data.members.find((m) => m.role === "seller")?.profile;
+  const depositPanelVisible = g.status === "active" || g.status === "funded";
+  const blurAddress = (addr: string | null | undefined) => {
+    if (!addr) return "";
+    return addr.length <= 16 ? addr : `${addr.slice(0, 8)}…${addr.slice(-8)}`;
+  };
+
   const act = async (fn: () => Promise<unknown>, ok: string) => {
     try { await fn(); toast.success(ok); refetch(); } catch (e) { toast.error((e as Error).message); }
   };
@@ -159,43 +168,92 @@ function EscrowGroupPage() {
 
         <StatusTimeline status={g.status} />
 
+        {depositPanelVisible && (
+          <div className="surface p-5 space-y-4">
+            <div className="grid gap-4 xl:grid-cols-3">
+              <div className="rounded-3xl border border-border/60 p-5">
+                <div className="flex items-center gap-3">
+                  <Avatar>
+                    {buyerProfile?.display_name ? (
+                      <AvatarFallback>{buyerProfile.display_name.slice(0, 2).toUpperCase()}</AvatarFallback>
+                    ) : (
+                      <AvatarFallback>BY</AvatarFallback>
+                    )}
+                  </Avatar>
+                  <div>
+                    <div className="text-sm font-semibold">{buyerProfile?.display_name ?? "Buyer"}</div>
+                    <div className="text-[11px] uppercase tracking-wide text-muted-foreground">Buyer profile</div>
+                  </div>
+                </div>
+                <div className="mt-4 rounded-2xl bg-secondary/50 p-4">
+                  <div className="text-[10px] uppercase text-muted-foreground">Deposit address</div>
+                  <div className="mt-2 font-mono text-sm break-words">{buyerProfile?.wallet_address_btc ? blurAddress(buyerProfile.wallet_address_btc) : <span className="text-muted-foreground">Buyer has not added a BTC address.</span>}</div>
+                </div>
+              </div>
+
+              <div className="rounded-3xl border border-border/60 p-5 bg-primary/5">
+                <div className="flex flex-col items-center justify-center gap-3 text-center">
+                  <div className="text-6xl animate-[bounce_1.2s_infinite]">🤖</div>
+                  <div className="text-sm font-semibold">Escrow bot</div>
+                  <div className="text-[11px] text-muted-foreground">Live monitoring of BTC deposit and chain balance.</div>
+                </div>
+                <div className="mt-4 space-y-4">
+                  <div className="rounded-2xl bg-background p-4">
+                    <div className="text-[10px] uppercase text-muted-foreground">Real deposited balance</div>
+                    <div className="mt-2 text-2xl font-semibold">{g.status === "funded" ? `${g.amount} BTC` : "Awaiting deposit"}</div>
+                    <div className="text-[11px] text-muted-foreground">{g.status === "funded" ? "Updated from the BTC transaction hash." : "Buyer must fund the escrow address below."}</div>
+                  </div>
+                  <div className="rounded-2xl bg-background p-4">
+                    <div className="text-[10px] uppercase text-muted-foreground">Escrow address</div>
+                    <div className="mt-2 font-mono text-sm break-all">{g.escrow_address ?? "Waiting for seller BTC payout address."}</div>
+                  </div>
+                  <div className="rounded-2xl bg-background p-4">
+                    <div className="flex items-center justify-between">
+                      <div className="text-[10px] uppercase text-muted-foreground">Transaction hash</div>
+                      {g.deposit_tx_hash ? <Badge variant="outline" className="text-[10px]">submitted</Badge> : null}
+                    </div>
+                    {g.deposit_tx_hash ? (
+                      <div className="mt-2 font-mono text-sm break-all">{g.deposit_tx_hash}</div>
+                    ) : (
+                      <div className="mt-2 flex flex-col gap-2">
+                        <Input value={hash} onChange={(e) => setHash(e.target.value)} placeholder="Paste BTC tx hash" className="font-mono" />
+                        <Button onClick={() => act(() => submitHash({ data: { group_id: g.id, hash } }), "Hash submitted")} disabled={!hash.trim()}>Submit</Button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              <div className="rounded-3xl border border-border/60 p-5">
+                <div className="flex items-center gap-3">
+                  <Avatar>
+                    {sellerProfile?.display_name ? (
+                      <AvatarFallback>{sellerProfile.display_name.slice(0, 2).toUpperCase()}</AvatarFallback>
+                    ) : (
+                      <AvatarFallback>SL</AvatarFallback>
+                    )}
+                  </Avatar>
+                  <div>
+                    <div className="text-sm font-semibold">{sellerProfile?.display_name ?? "Seller"}</div>
+                    <div className="text-[11px] uppercase tracking-wide text-muted-foreground">Seller details</div>
+                  </div>
+                </div>
+                <div className="mt-4 space-y-3 text-sm">
+                  <div>
+                    <div className="text-[10px] uppercase text-muted-foreground">Trading amount</div>
+                    <div>{g.amount} BTC{g.fiat_amount ? ` · ≈ ${g.fiat_amount} ${g.fiat_currency}` : ""}</div>
+                  </div>
+                  <div>
+                    <div className="text-[10px] uppercase text-muted-foreground">Release address</div>
+                    <div className="mt-2 font-mono text-sm break-all">{g.escrow_address ?? "No BTC payout address configured."}</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Pending invite — for the invited counterparty (seller or moderator) */}
-        {iAmPendingInvitee && (
-          <div className="surface border-primary/40 p-5 space-y-3">
-            <div className="flex items-center gap-2 font-semibold text-primary">
-              <ShieldAlert className="h-4 w-4" /> You've been invited to this escrow
-            </div>
-            <p className="text-xs text-muted-foreground">
-              Accept to join the chat, see the escrow address, and verify the buyer's deposit. Decline to refuse and cancel the group.
-            </p>
-            <div className="flex gap-2">
-              <Button onClick={() => act(() => accept({ data: { group_id: g.id } }), "Invite accepted")}>Accept invite</Button>
-              <Button variant="ghost" onClick={() => act(() => decline({ data: { group_id: g.id } }), "Invite declined")}>Decline</Button>
-            </div>
-          </div>
-        )}
-
-        {/* Buyer waiting on seller */}
-        {isBuyer && sellerPending && (
-          <div className="surface p-5 text-sm text-muted-foreground">
-            ⏳ Waiting for <b className="text-foreground">{data.members.find((m) => m.role === "seller")?.profile?.display_name ?? "the seller"}</b> to accept the invite. They've been notified on Telegram (if linked).
-          </div>
-        )}
-
-        {/* Buyer: submit tx hash — only after seller accepted */}
-        {isBuyer && !sellerPending && g.escrow_address && !g.deposit_tx_hash && g.status !== "cancelled" && (
-          <div className="surface p-5 space-y-3">
-            <div className="flex items-center gap-2 font-semibold"><Hash className="h-4 w-4" /> Submit deposit transaction hash</div>
-            <p className="text-xs text-muted-foreground">
-              After sending {g.amount} {g.asset} to the escrow address above, paste your on-chain transaction hash here.
-              The seller will verify and release.
-            </p>
-            <div className="flex gap-2">
-              <Input value={hash} onChange={(e) => setHash(e.target.value)} placeholder="Paste tx hash (0x… / TRX… / …)" className="font-mono" />
-              <Button onClick={() => act(() => submitHash({ data: { group_id: g.id, hash } }), "Hash submitted")}>Submit</Button>
-            </div>
-          </div>
-        )}
 
         {/* Seller: verify deposit then release */}
         {isSeller && !iAmPendingInvitee && g.status === "funded" && (
