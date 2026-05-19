@@ -213,6 +213,7 @@ function TradePage() {
         </form>
       </div>
     </div>
+    </div>
   );
 }
 
