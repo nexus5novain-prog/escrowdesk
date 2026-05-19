@@ -34,7 +34,7 @@ function OfferDetail() {
     try {
       const res = await _start({ data: { offer_id: id, fiat_amount: Number(amt), payment_method_id: pm || null } });
       toast.success("Trade started");
-      nav({ to: "/trade/$id", params: { id: res.id } });
+      nav({ to: "/escrow/trade/$id", params: { id: res.id } });
     } catch (e) { toast.error((e as Error).message); }
   };
 
