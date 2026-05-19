@@ -14,7 +14,6 @@ import { Route as ShopRouteImport } from './routes/shop'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as PostOfferRouteImport } from './routes/post-offer'
 import { Route as PostListingRouteImport } from './routes/post-listing'
-import { Route as OrderBookRouteImport } from './routes/order-book'
 import { Route as MarketplaceRouteImport } from './routes/marketplace'
 import { Route as EscrowRouteImport } from './routes/escrow'
 import { Route as AuthRouteImport } from './routes/auth'
@@ -50,11 +49,6 @@ const PostOfferRoute = PostOfferRouteImport.update({
 const PostListingRoute = PostListingRouteImport.update({
   id: '/post-listing',
   path: '/post-listing',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const OrderBookRoute = OrderBookRouteImport.update({
-  id: '/order-book',
-  path: '/order-book',
   getParentRoute: () => rootRouteImport,
 } as any)
 const MarketplaceRoute = MarketplaceRouteImport.update({
@@ -120,7 +114,6 @@ export interface FileRoutesByFullPath {
   '/auth': typeof AuthRoute
   '/escrow': typeof EscrowRouteWithChildren
   '/marketplace': typeof MarketplaceRoute
-  '/order-book': typeof OrderBookRoute
   '/post-listing': typeof PostListingRoute
   '/post-offer': typeof PostOfferRoute
   '/settings': typeof SettingsRoute
@@ -139,7 +132,6 @@ export interface FileRoutesByTo {
   '/auth': typeof AuthRoute
   '/escrow': typeof EscrowRouteWithChildren
   '/marketplace': typeof MarketplaceRoute
-  '/order-book': typeof OrderBookRoute
   '/post-listing': typeof PostListingRoute
   '/post-offer': typeof PostOfferRoute
   '/settings': typeof SettingsRoute
@@ -159,7 +151,6 @@ export interface FileRoutesById {
   '/auth': typeof AuthRoute
   '/escrow': typeof EscrowRouteWithChildren
   '/marketplace': typeof MarketplaceRoute
-  '/order-book': typeof OrderBookRoute
   '/post-listing': typeof PostListingRoute
   '/post-offer': typeof PostOfferRoute
   '/settings': typeof SettingsRoute
@@ -180,7 +171,6 @@ export interface FileRouteTypes {
     | '/auth'
     | '/escrow'
     | '/marketplace'
-    | '/order-book'
     | '/post-listing'
     | '/post-offer'
     | '/settings'
@@ -199,7 +189,6 @@ export interface FileRouteTypes {
     | '/auth'
     | '/escrow'
     | '/marketplace'
-    | '/order-book'
     | '/post-listing'
     | '/post-offer'
     | '/settings'
@@ -218,7 +207,6 @@ export interface FileRouteTypes {
     | '/auth'
     | '/escrow'
     | '/marketplace'
-    | '/order-book'
     | '/post-listing'
     | '/post-offer'
     | '/settings'
@@ -238,7 +226,6 @@ export interface RootRouteChildren {
   AuthRoute: typeof AuthRoute
   EscrowRoute: typeof EscrowRouteWithChildren
   MarketplaceRoute: typeof MarketplaceRoute
-  OrderBookRoute: typeof OrderBookRoute
   PostListingRoute: typeof PostListingRoute
   PostOfferRoute: typeof PostOfferRoute
   SettingsRoute: typeof SettingsRoute
@@ -284,13 +271,6 @@ declare module '@tanstack/react-router' {
       path: '/post-listing'
       fullPath: '/post-listing'
       preLoaderRoute: typeof PostListingRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/order-book': {
-      id: '/order-book'
-      path: '/order-book'
-      fullPath: '/order-book'
-      preLoaderRoute: typeof OrderBookRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/marketplace': {
@@ -394,7 +374,6 @@ const rootRouteChildren: RootRouteChildren = {
   AuthRoute: AuthRoute,
   EscrowRoute: EscrowRouteWithChildren,
   MarketplaceRoute: MarketplaceRoute,
-  OrderBookRoute: OrderBookRoute,
   PostListingRoute: PostListingRoute,
   PostOfferRoute: PostOfferRoute,
   SettingsRoute: SettingsRoute,

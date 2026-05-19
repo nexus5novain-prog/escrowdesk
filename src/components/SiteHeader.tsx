@@ -42,9 +42,8 @@ export function SiteHeader() {
         </Link>
         <nav className="flex items-center gap-1 text-sm">
           <Link to="/" className="px-3 py-2 text-muted-foreground hover:text-foreground" activeProps={{ className: "px-3 py-2 text-foreground" }}>Home</Link>
-          <Link to="/marketplace" className="px-3 py-2 text-muted-foreground hover:text-foreground" activeProps={{ className: "px-3 py-2 text-foreground" }}>Marketplace</Link>
-          <Link to="/shop" className="px-3 py-2 text-muted-foreground hover:text-foreground" activeProps={{ className: "px-3 py-2 text-foreground" }}>Shop</Link>
-          <Link to="/order-book" className="px-3 py-2 text-muted-foreground hover:text-foreground" activeProps={{ className: "px-3 py-2 text-foreground" }}>Order Book</Link>
+          <Link to="/marketplace" className="px-3 py-2 text-muted-foreground hover:text-foreground" activeProps={{ className: "px-3 py-2 text-foreground" }}>P2P Trade</Link>
+          <Link to="/shop" className="px-3 py-2 text-muted-foreground hover:text-foreground" activeProps={{ className: "px-3 py-2 text-foreground" }}>Marketplace</Link>
           {user && (
             <>
               <Link to="/escrow" className="px-3 py-2 text-muted-foreground hover:text-foreground" activeProps={{ className: "px-3 py-2 text-foreground" }}>Escrow</Link>
