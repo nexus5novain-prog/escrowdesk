@@ -12,9 +12,9 @@ import { toast } from "sonner";
 import { fmtFiat } from "@/lib/format";
 import {
   CreditCard, BookOpen, ScanLine, Store,
-  ShieldCheck, Search, Package, ChevronRight,
+  ShieldCheck, Search, Package, ChevronRight, ChevronDown,
   Bitcoin, Zap, Tag, Star, CheckCircle2, XCircle,
-  ShoppingCart, ArrowRight, Layers, Lock,
+  ShoppingCart, ArrowRight, Layers, Lock, Eye, Copy, Info,
 } from "lucide-react";
 
 export const Route = createFileRoute("/shop")({
@@ -40,14 +40,28 @@ function fmtBtc(rate: string | undefined, usd: number | null): string | null {
   return null;
 }
 
-// ─── Mask card number ────────────────────────────────────────────────────────
+// ─── Mask card number (full mask) ────────────────────────────────────────────
 function maskCard(num: string): string {
   const clean = num.replace(/\D/g, "");
   if (clean.length < 4) return num;
   const groups = clean.match(/.{1,4}/g) ?? [];
-  return groups
-    .map((g, i) => (i < groups.length - 1 ? "••••" : g))
-    .join(" ");
+  return groups.map((g, i) => (i < groups.length - 1 ? "••••" : g)).join(" ");
+}
+
+// ─── BIN preview (first 6 + blur rest) ──────────────────────────────────────
+function CardBinPreview({ cardNumber }: { cardNumber: string }) {
+  const clean = cardNumber.replace(/\D/g, "");
+  const first6 = clean.slice(0, 6);
+  const remaining = clean.slice(6);
+  const grouped = remaining.match(/.{1,4}/g) ?? [];
+  return (
+    <span className="font-mono tracking-[0.2em] text-base">
+      {first6.slice(0, 4)}{" "}{first6.slice(4)}
+      {grouped.map((g, i) => (
+        <span key={i} className="blur-sm select-none text-white/70"> {g}</span>
+      ))}
+    </span>
+  );
 }
 
 // ─── Shared buy hook ─────────────────────────────────────────────────────────
@@ -84,19 +98,113 @@ function useBuy() {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
+// CARD DETAIL DROPDOWN
+// ═══════════════════════════════════════════════════════════════════════════════
+function CardDetailPanel({ product, onBuy, busy }: { product: ShopProduct; onBuy: (p: ShopProduct) => void; busy: boolean }) {
+  const card = product.card;
+  const isSold = product.status === "sold";
+  const isActive = card?.card_status === "active";
+  const btc = fmtBtc(card?.btc_rate, product.amount);
+
+  const binInfo = useMemo(() => {
+    if (!card?.card_number) return null;
+    const clean = card.card_number.replace(/\D/g, "");
+    const bin = clean.slice(0, 6);
+    let network = "Unknown";
+    if (/^4/.test(bin)) network = "Visa";
+    else if (/^5[1-5]/.test(bin)) network = "Mastercard";
+    else if (/^3[47]/.test(bin)) network = "Amex";
+    else if (/^6/.test(bin)) network = "Discover";
+    return { bin, network };
+  }, [card?.card_number]);
+
+  return (
+    <div className="border-t border-white/10 px-5 pb-5 pt-4 space-y-4">
+      {/* BIN preview section */}
+      {card?.card_number && binInfo && (
+        <div className="space-y-2">
+          <div className="text-[10px] uppercase tracking-widest text-white/40 flex items-center gap-1">
+            <Info className="h-3 w-3" />
+            BIN Preview (first 6 visible)
+          </div>
+          <div className="rounded-xl border border-white/10 bg-white/5 px-4 py-3">
+            <CardBinPreview cardNumber={card.card_number} />
+          </div>
+          <div className="flex items-center gap-3 text-[11px]">
+            <span className="text-white/50">BIN: <b className="text-white/80 font-mono">{binInfo.bin}</b></span>
+            <span className="text-white/50">Network: <b className="text-white/80">{binInfo.network}</b></span>
+            <span className="text-white/50">Type: <b className={`${isActive ? "text-emerald-400" : "text-red-400"}`}>{card.card_status}</b></span>
+          </div>
+        </div>
+      )}
+
+      {/* Card holder */}
+      {card?.card_name && (
+        <div>
+          <div className="text-[10px] uppercase tracking-widest text-white/40">Card Holder</div>
+          <div className="text-sm text-white/60 mt-0.5 font-mono">{card.card_name}</div>
+        </div>
+      )}
+
+      {/* Notes preview */}
+      {product.description && (
+        <div>
+          <div className="text-[10px] uppercase tracking-widest text-white/40">Notes</div>
+          <p className="text-sm text-white/60 mt-0.5 line-clamp-2">{product.description}</p>
+        </div>
+      )}
+
+      {/* Locked overlay notice */}
+      <div className="rounded-xl border border-white/10 bg-white/5 p-3 flex items-center gap-2 text-xs text-white/50">
+        <Lock className="h-3.5 w-3.5 shrink-0" />
+        Full card number, billing details &amp; CVV unlock after escrow release in your Trade Library.
+      </div>
+
+      {/* Price + buy */}
+      <div className="flex items-center justify-between">
+        <div>
+          <div className="text-xl font-bold text-white">
+            {product.amount != null ? fmtFiat(product.amount, product.currency || "USD") : "POA"}
+          </div>
+          {btc && (
+            <div className="mt-0.5 flex items-center gap-1 text-[11px] text-amber-400/80 font-mono">
+              <Bitcoin className="h-3 w-3" />{btc}
+            </div>
+          )}
+        </div>
+        <Button
+          size="sm"
+          disabled={busy || isSold || !isActive}
+          onClick={() => onBuy(product)}
+          className="gap-1.5 bg-gradient-to-r from-primary to-primary/80 hover:opacity-90 shadow-lg shadow-primary/20"
+        >
+          {busy ? "…" : isSold ? "Sold" : !isActive ? "Dead" : <><ShoppingCart className="h-3.5 w-3.5" />Buy with Escrow</>}
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
 // SECTION: CARD
 // ═══════════════════════════════════════════════════════════════════════════════
-function CardItem({ product, onBuy, busy }: { product: ShopProduct; onBuy: (p: ShopProduct) => void; busy: boolean }) {
+function CardItem({ product, onBuy, busy, expanded, onToggle }: {
+  product: ShopProduct;
+  onBuy: (p: ShopProduct) => void;
+  busy: boolean;
+  expanded: boolean;
+  onToggle: () => void;
+}) {
   const isSold = product.status === "sold";
   const card = product.card;
   const isActive = card?.card_status === "active";
   const btc = fmtBtc(card?.btc_rate, product.amount);
 
   return (
-    <article className={`relative overflow-hidden rounded-2xl border transition-all duration-200 hover:scale-[1.01] hover:shadow-xl ${isSold ? "opacity-50 border-border/30" : "border-border/50 hover:border-primary/40"}`}
+    <article className={`relative overflow-hidden rounded-2xl border transition-all duration-200 ${expanded ? "border-primary/50 shadow-xl shadow-primary/10" : isSold ? "opacity-50 border-border/30" : "border-border/50 hover:border-primary/40 hover:scale-[1.01] hover:shadow-xl"}`}
       style={{ background: "linear-gradient(135deg, #0f172a 0%, #1e293b 40%, #0f172a 100%)" }}>
-      {/* Sheen */}
       <div className="absolute inset-0 bg-gradient-to-br from-white/5 via-transparent to-transparent pointer-events-none" />
+
       {/* Top bar */}
       <div className="relative flex items-center justify-between px-5 pt-5">
         <div className="flex items-center gap-2">
@@ -118,7 +226,7 @@ function CardItem({ product, onBuy, busy }: { product: ShopProduct; onBuy: (p: S
         )}
       </div>
 
-      {/* Card number */}
+      {/* Card number — masked in preview */}
       <div className="px-5 pt-4">
         <div className="font-mono text-xl tracking-[0.25em] text-white/90 select-none">
           {card?.card_number ? maskCard(card.card_number) : "•••• •••• •••• ••••"}
@@ -132,17 +240,10 @@ function CardItem({ product, onBuy, busy }: { product: ShopProduct; onBuy: (p: S
         </div>
       )}
 
-      {/* Notes */}
-      {product.description && (
-        <div className="px-5 pt-2">
-          <div className="text-[11px] text-white/50 line-clamp-2 leading-relaxed">{product.description}</div>
-        </div>
-      )}
-
       {/* Divider */}
       <div className="mx-5 mt-4 border-t border-white/10" />
 
-      {/* Price row */}
+      {/* Price row + toggle */}
       <div className="flex items-center justify-between px-5 py-4">
         <div>
           <div className="text-xl font-bold text-white">
@@ -150,20 +251,34 @@ function CardItem({ product, onBuy, busy }: { product: ShopProduct; onBuy: (p: S
           </div>
           {btc && (
             <div className="mt-0.5 flex items-center gap-1 text-[11px] text-amber-400/80 font-mono">
-              <Bitcoin className="h-3 w-3" />
-              {btc}
+              <Bitcoin className="h-3 w-3" />{btc}
             </div>
           )}
         </div>
-        <Button
-          size="sm"
-          disabled={busy || isSold || !isActive}
-          onClick={() => onBuy(product)}
-          className="gap-1.5 bg-gradient-to-r from-primary to-primary/80 hover:opacity-90 shadow-lg shadow-primary/20"
-        >
-          {busy ? "…" : isSold ? "Sold" : !isActive ? "Dead" : <>Buy <ChevronRight className="h-3 w-3" /></>}
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={onToggle}
+            className="gap-1.5 border-white/20 text-white/70 hover:bg-white/10 hover:text-white text-xs"
+          >
+            <Eye className="h-3.5 w-3.5" />
+            {expanded ? "Less" : "Preview"}
+            <ChevronDown className={`h-3 w-3 transition-transform ${expanded ? "rotate-180" : ""}`} />
+          </Button>
+          <Button
+            size="sm"
+            disabled={busy || isSold || !isActive}
+            onClick={() => onBuy(product)}
+            className="gap-1.5 bg-gradient-to-r from-primary to-primary/80 hover:opacity-90 shadow-lg shadow-primary/20"
+          >
+            {busy ? "…" : isSold ? "Sold" : !isActive ? "Dead" : <>Buy <ChevronRight className="h-3 w-3" /></>}
+          </Button>
+        </div>
       </div>
+
+      {/* Expandable detail */}
+      {expanded && <CardDetailPanel product={product} onBuy={onBuy} busy={busy} />}
 
       {isSold && (
         <div className="absolute inset-0 flex items-center justify-center bg-background/60 backdrop-blur-sm rounded-2xl">
@@ -176,14 +291,20 @@ function CardItem({ product, onBuy, busy }: { product: ShopProduct; onBuy: (p: S
 
 function CardSection({ products, onBuy, busy, loading }: SectionProps) {
   const [q, setQ] = useState("");
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+
   const filtered = useMemo(() => {
     if (!q.trim()) return products;
-    const n = q.toLowerCase();
-    return products.filter((p) =>
-      p.name.toLowerCase().includes(n) ||
-      p.card?.card_name?.toLowerCase().includes(n) ||
-      p.description.toLowerCase().includes(n),
-    );
+    const n = q.toLowerCase().replace(/\s/g, "");
+    return products.filter((p) => {
+      if (p.name.toLowerCase().includes(n)) return true;
+      if (p.card?.card_name?.toLowerCase().includes(n)) return true;
+      if (p.description.toLowerCase().includes(n)) return true;
+      // Search by first 6 digits of card number
+      const clean = (p.card?.card_number ?? "").replace(/\D/g, "");
+      if (clean.startsWith(n)) return true;
+      return false;
+    });
   }, [products, q]);
 
   return (
@@ -191,7 +312,7 @@ function CardSection({ products, onBuy, busy, loading }: SectionProps) {
       <div className="flex items-center gap-3">
         <div className="relative flex-1 max-w-xs">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input placeholder="Search cards…" value={q} onChange={(e) => setQ(e.target.value)} className="pl-9 h-9" />
+          <Input placeholder="Search by name or BIN (first 6 digits)…" value={q} onChange={(e) => setQ(e.target.value)} className="pl-9 h-9" />
         </div>
         <div className="text-xs text-muted-foreground">{filtered.length} card{filtered.length !== 1 ? "s" : ""}</div>
       </div>
@@ -202,11 +323,18 @@ function CardSection({ products, onBuy, busy, loading }: SectionProps) {
       ) : filtered.length > 0 ? (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {filtered.map((p) => (
-            <CardItem key={p.id} product={p} onBuy={onBuy} busy={busy === p.id} />
+            <CardItem
+              key={p.id}
+              product={p}
+              onBuy={onBuy}
+              busy={busy === p.id}
+              expanded={expandedId === p.id}
+              onToggle={() => setExpandedId(expandedId === p.id ? null : p.id)}
+            />
           ))}
         </div>
       ) : (
-        <EmptyState message={q ? "No cards match your search." : "No cards available right now."} />
+        <EmptyState message={q ? "No cards match your search. Try searching by name or first 6 digits." : "No cards available right now."} />
       )}
     </div>
   );
@@ -221,7 +349,6 @@ function EnrollCard({ product, onBuy, busy }: { product: ShopProduct; onBuy: (p:
 
   return (
     <article className="surface flex flex-col overflow-hidden rounded-2xl border border-border/40 hover:border-primary/30 transition-all hover:shadow-lg group">
-      {/* Image */}
       <div className="relative h-48 bg-gradient-to-br from-blue-500/15 to-indigo-600/10 overflow-hidden">
         {hasImage ? (
           <img src={product.image_url!} alt={product.name} className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-300" onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }} />
@@ -240,20 +367,21 @@ function EnrollCard({ product, onBuy, busy }: { product: ShopProduct; onBuy: (p:
         </div>
       </div>
 
-      {/* Content */}
       <div className="flex flex-1 flex-col p-5 gap-3">
         <div>
           <h3 className="font-semibold text-base leading-snug line-clamp-1">{product.name}</h3>
           <p className="mt-2 text-xs text-muted-foreground leading-relaxed line-clamp-3">{product.description}</p>
         </div>
-
         {product.contact_telegram && (
           <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
             <ShieldCheck className="h-3 w-3 text-primary" />
             <span>Support: @{product.contact_telegram}</span>
           </div>
         )}
-
+        <div className="rounded-xl border border-border/30 bg-secondary/20 p-2 flex items-center gap-2 text-xs text-muted-foreground">
+          <Lock className="h-3 w-3 shrink-0" />
+          Full credentials unlock in Trade Library after escrow release
+        </div>
         <div className="mt-auto flex items-center justify-between pt-3 border-t border-border/30">
           <div>
             <div className="text-lg font-bold text-primary">
@@ -274,13 +402,11 @@ function EnrollCard({ product, onBuy, busy }: { product: ShopProduct; onBuy: (p:
 
 function EnrollSection({ products, onBuy, busy, loading }: SectionProps) {
   const [q, setQ] = useState("");
-  const [sub, setSub] = useState("all");
-  const subs = useMemo(() => Array.from(new Set(products.map((p) => p.name.split(" ")[0]))).slice(0, 8), [products]);
   const filtered = useMemo(() => {
-    let r = [...products];
-    if (q.trim()) { const n = q.toLowerCase(); r = r.filter((p) => p.name.toLowerCase().includes(n) || p.description.toLowerCase().includes(n)); }
-    return r;
-  }, [products, q, sub]);
+    if (!q.trim()) return products;
+    const n = q.toLowerCase();
+    return products.filter((p) => p.name.toLowerCase().includes(n) || p.description.toLowerCase().includes(n));
+  }, [products, q]);
 
   return (
     <div className="space-y-5">
@@ -315,7 +441,6 @@ function ScannerCard({ product, onBuy, busy }: { product: ShopProduct; onBuy: (p
 
   return (
     <article className="surface flex gap-4 rounded-xl border border-border/40 hover:border-emerald-500/30 transition-all p-4 hover:shadow-md group">
-      {/* Thumbnail */}
       <div className="h-20 w-20 shrink-0 rounded-lg bg-gradient-to-br from-emerald-500/15 to-teal-600/10 border border-border/30 overflow-hidden flex items-center justify-center">
         {hasImage ? (
           <img src={product.image_url!} alt={product.name} className="h-full w-full object-cover" onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }} />
@@ -323,15 +448,12 @@ function ScannerCard({ product, onBuy, busy }: { product: ShopProduct; onBuy: (p
           <ScanLine className="h-8 w-8 text-emerald-400/40" />
         )}
       </div>
-
-      {/* Info */}
       <div className="flex flex-1 flex-col min-w-0 gap-1.5">
         <div className="flex items-start justify-between gap-2">
           <h3 className="font-semibold text-sm leading-snug line-clamp-1">{product.name}</h3>
           <Badge className="text-[10px] bg-emerald-500/15 text-emerald-400 border-emerald-500/20 shrink-0">SCANNER</Badge>
         </div>
         <p className="text-xs text-muted-foreground leading-relaxed line-clamp-2">{product.description}</p>
-
         <div className="flex items-center justify-between mt-auto pt-1">
           <div className="font-bold text-base text-foreground">
             {product.amount != null ? fmtFiat(product.amount, product.currency || "USD") : "Free"}
@@ -387,7 +509,6 @@ function GeneralCard({ product, onBuy, busy }: { product: ShopProduct; onBuy: (p
 
   return (
     <article className="surface group relative overflow-hidden rounded-2xl border border-border/40 hover:border-primary/30 transition-all hover:shadow-md flex flex-col">
-      {/* Image / Banner */}
       <div className="relative h-40 bg-gradient-to-br from-primary/10 to-primary/5 overflow-hidden">
         {hasImage ? (
           <img src={product.image_url!} alt={product.name} className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-300" onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }} />
@@ -403,14 +524,11 @@ function GeneralCard({ product, onBuy, busy }: { product: ShopProduct; onBuy: (p
         )}
         <div className="absolute bottom-0 left-0 right-0 h-12 bg-gradient-to-t from-background/80 to-transparent" />
       </div>
-
-      {/* Body */}
       <div className="flex flex-1 flex-col p-4 gap-2.5">
         <div>
           <h3 className="font-semibold text-sm line-clamp-1">{product.name}</h3>
           <p className="mt-1 text-xs text-muted-foreground leading-relaxed line-clamp-2">{product.description}</p>
         </div>
-
         <div className="flex items-center justify-between mt-auto pt-2 border-t border-border/30">
           <div>
             <div className="font-bold text-primary">

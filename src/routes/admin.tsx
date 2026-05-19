@@ -15,6 +15,8 @@ import {
   adminListShopProducts, adminCreateShopProduct, adminUpdateShopProduct,
   adminDeleteShopProduct, adminGetShopStats, type ShopProduct, type ShopSection,
 } from "@/lib/shop.functions";
+import { adminSeedMarketplace, adminSeedUsers } from "@/lib/seed.functions";
+import { adminActivatePremium, adminGrantTrusted } from "@/lib/trades.functions";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
@@ -28,6 +30,7 @@ import {
   Package, PlusCircle, Pencil, Trash2, Eye, EyeOff, ShoppingBag,
   CheckCircle2, XCircle, Search, ImageIcon, DollarSign,
   CreditCard, BookOpen, ScanLine, Store, Bitcoin,
+  Database, Users, Crown, BadgeCheck, Loader2, Zap,
 } from "lucide-react";
 
 export const Route = createFileRoute("/admin")({ component: () => (<AuthGate><Admin /></AuthGate>) });
@@ -70,6 +73,7 @@ function Admin() {
           <TabsTrigger value="warnings">Warnings</TabsTrigger>
           <TabsTrigger value="telegram">Telegram</TabsTrigger>
           <TabsTrigger value="settings">Settings</TabsTrigger>
+          <TabsTrigger value="seed" className="gap-1.5 text-emerald-400"><Database className="h-3.5 w-3.5" />Seed Data</TabsTrigger>
         </TabsList>
         <TabsContent value="shop" className="mt-4"><ShopPanel /></TabsContent>
         <TabsContent value="disputes" className="mt-4"><DisputesPanel /></TabsContent>
@@ -79,7 +83,196 @@ function Admin() {
         <TabsContent value="warnings" className="mt-4"><WarningsPanel /></TabsContent>
         <TabsContent value="telegram" className="mt-4"><TelegramPanel /></TabsContent>
         <TabsContent value="settings" className="mt-4"><SettingsPanel /></TabsContent>
+        <TabsContent value="seed" className="mt-4"><SeedPanel /></TabsContent>
       </Tabs>
+    </div>
+  );
+}
+
+function SeedPanel() {
+  const seedMarket = useServerFn(adminSeedMarketplace);
+  const seedUsers = useServerFn(adminSeedUsers);
+  const activatePrem = useServerFn(adminActivatePremium);
+  const grantTrusted = useServerFn(adminGrantTrusted);
+  const fetchUsers = useServerFn(adminListUsers);
+
+  const [marketBusy, setMarketBusy] = useState(false);
+  const [usersBusy, setUsersBusy] = useState(false);
+  const [premUserId, setPremUserId] = useState("");
+  const [premMonths, setPremMonths] = useState("3");
+  const [premBusy, setPremBusy] = useState(false);
+  const [trustUserId, setTrustUserId] = useState("");
+  const [trustBusy, setTrustBusy] = useState(false);
+
+  const { data: usersData } = useQuery({ queryKey: ["admin-users-seed"], queryFn: () => fetchUsers({ data: {} }) });
+  const users = (usersData as { users: Array<{ user_id: string; display_name: string }> } | undefined)?.users ?? [];
+
+  return (
+    <div className="space-y-5">
+      <div className="surface rounded-2xl p-5 border border-emerald-500/20">
+        <div className="flex items-center gap-2 mb-3">
+          <Database className="h-5 w-5 text-emerald-400" />
+          <h2 className="font-semibold">Seed Data</h2>
+          <Badge className="text-[10px] bg-amber-500/15 text-amber-400 border-0">Admin only</Badge>
+        </div>
+        <p className="text-sm text-muted-foreground mb-5">
+          Populate the platform with demo marketplace products and sample users. Safe to run multiple times — existing records are skipped.
+        </p>
+
+        <div className="grid gap-4 sm:grid-cols-2">
+          {/* Seed Marketplace */}
+          <div className="rounded-xl border border-border/40 bg-secondary/20 p-4 space-y-3">
+            <div className="flex items-center gap-2">
+              <ShoppingBag className="h-4 w-4 text-primary" />
+              <h3 className="font-semibold text-sm">Marketplace Products</h3>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Seeds 10 CARD, 5 ENROLL, 5 SCANNER, and 5 GENERAL products owned by your admin account.
+            </p>
+            <Button
+              disabled={marketBusy}
+              onClick={async () => {
+                setMarketBusy(true);
+                try {
+                  const r = await seedMarket();
+                  toast.success(`Seeded ${r.created} marketplace products`);
+                } catch (e) { toast.error((e as Error).message); }
+                finally { setMarketBusy(false); }
+              }}
+              className="w-full gap-1.5"
+              variant="outline"
+            >
+              {marketBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Zap className="h-4 w-4" />}
+              {marketBusy ? "Seeding products…" : "Seed 25 Products"}
+            </Button>
+          </div>
+
+          {/* Seed Users */}
+          <div className="rounded-xl border border-border/40 bg-secondary/20 p-4 space-y-3">
+            <div className="flex items-center gap-2">
+              <Users className="h-4 w-4 text-blue-400" />
+              <h3 className="font-semibold text-sm">Demo Users (80)</h3>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Creates 10 premium, 20 trusted, and 50 regular demo users with realistic stats and avatars.
+            </p>
+            <Button
+              disabled={usersBusy}
+              onClick={async () => {
+                setUsersBusy(true);
+                try {
+                  const r = await seedUsers();
+                  toast.success(`Created ${r.created} users, skipped ${r.skipped}`);
+                } catch (e) { toast.error((e as Error).message); }
+                finally { setUsersBusy(false); }
+              }}
+              className="w-full gap-1.5"
+              variant="outline"
+            >
+              {usersBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Users className="h-4 w-4" />}
+              {usersBusy ? "Seeding users… (may take 2–3 min)" : "Seed 80 Demo Users"}
+            </Button>
+            {usersBusy && (
+              <p className="text-[11px] text-amber-400/80">Creating auth accounts — this takes a few minutes.</p>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Badge Management */}
+      <div className="surface rounded-2xl p-5 space-y-4">
+        <h2 className="font-semibold flex items-center gap-2">
+          <BadgeCheck className="h-4 w-4 text-emerald-400" />
+          Badge Management
+        </h2>
+
+        <div className="grid gap-4 sm:grid-cols-2">
+          {/* Grant Premium */}
+          <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-4 space-y-3">
+            <div className="flex items-center gap-2">
+              <Crown className="h-4 w-4 text-amber-400" />
+              <h3 className="font-semibold text-sm text-amber-400">Activate Premium</h3>
+            </div>
+            <select
+              className="w-full rounded-md border border-border/60 bg-background px-3 py-2 text-sm"
+              value={premUserId}
+              onChange={(e) => setPremUserId(e.target.value)}
+            >
+              <option value="">Select user…</option>
+              {users.map((u) => (
+                <option key={u.user_id} value={u.user_id}>{u.display_name || u.user_id.slice(0, 8)}</option>
+              ))}
+            </select>
+            <div className="flex items-center gap-2">
+              <Input
+                type="number"
+                min="1"
+                max="36"
+                value={premMonths}
+                onChange={(e) => setPremMonths(e.target.value)}
+                className="w-24 h-8 text-sm"
+                placeholder="Months"
+              />
+              <span className="text-xs text-muted-foreground">months</span>
+            </div>
+            <Button
+              size="sm"
+              disabled={premBusy || !premUserId}
+              className="w-full gap-1.5 bg-amber-500 hover:bg-amber-400 text-black"
+              onClick={async () => {
+                if (!premUserId) return;
+                setPremBusy(true);
+                try {
+                  const r = await activatePrem({ data: { user_id: premUserId, months: Number(premMonths) || 3 } });
+                  toast.success(`Premium activated until ${new Date(r.expires_at).toLocaleDateString()}`);
+                  setPremUserId("");
+                } catch (e) { toast.error((e as Error).message); }
+                finally { setPremBusy(false); }
+              }}
+            >
+              {premBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Crown className="h-3.5 w-3.5" />}
+              Activate Premium
+            </Button>
+          </div>
+
+          {/* Grant Trusted */}
+          <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-4 space-y-3">
+            <div className="flex items-center gap-2">
+              <BadgeCheck className="h-4 w-4 text-emerald-400" />
+              <h3 className="font-semibold text-sm text-emerald-400">Grant Trusted Badge</h3>
+            </div>
+            <select
+              className="w-full rounded-md border border-border/60 bg-background px-3 py-2 text-sm"
+              value={trustUserId}
+              onChange={(e) => setTrustUserId(e.target.value)}
+            >
+              <option value="">Select user…</option>
+              {users.map((u) => (
+                <option key={u.user_id} value={u.user_id}>{u.display_name || u.user_id.slice(0, 8)}</option>
+              ))}
+            </select>
+            <Button
+              size="sm"
+              disabled={trustBusy || !trustUserId}
+              className="w-full gap-1.5 border-emerald-500/40 hover:bg-emerald-500/10 hover:text-emerald-400"
+              variant="outline"
+              onClick={async () => {
+                if (!trustUserId) return;
+                setTrustBusy(true);
+                try {
+                  await grantTrusted({ data: { user_id: trustUserId, grant: true } });
+                  toast.success("Trusted badge granted");
+                  setTrustUserId("");
+                } catch (e) { toast.error((e as Error).message); }
+                finally { setTrustBusy(false); }
+              }}
+            >
+              {trustBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <BadgeCheck className="h-3.5 w-3.5" />}
+              Grant Trusted Badge
+            </Button>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

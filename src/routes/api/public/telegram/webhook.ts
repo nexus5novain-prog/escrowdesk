@@ -3,6 +3,10 @@ import { createHash, timingSafeEqual } from "crypto";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { tgCall, tgSendMessage } from "@/lib/telegram.server";
 
+function escapeHtml(str: string): string {
+  return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
 type HelpScope = "user" | "staff" | "admin";
 type HelpTopic = {
   key: string;
@@ -145,6 +149,41 @@ const HELP_TOPICS: HelpTopic[] = [
       "",
       "<b>Usage</b>",
       "<code>/fee 250</code>   ← 2.50%",
+    ].join("\n"),
+  },
+  {
+    key: "profile",
+    label: "👤 /profile",
+    title: "👤 <b>/profile</b> — View your profile &amp; stats",
+    body: [
+      "Shows your display name, bio, trading stats, badges, and membership status.",
+      "",
+      "<b>Usage</b>",
+      "<code>/profile</code>",
+    ].join("\n"),
+  },
+  {
+    key: "purchases",
+    label: "🛍️ /purchases",
+    title: "🛍️ <b>/purchases</b> — List your marketplace purchases",
+    body: [
+      "Shows your last 10 completed marketplace buys with product names, prices, and dates.",
+      "Full card details are only available in the web app Trade Library after escrow release.",
+      "",
+      "<b>Usage</b>",
+      "<code>/purchases</code>",
+    ].join("\n"),
+  },
+  {
+    key: "premium",
+    label: "👑 /premium",
+    title: "👑 <b>/premium</b> — Check or request Premium membership",
+    body: [
+      "Shows your current Premium status and benefits.",
+      "Premium costs $50 for 3 months. Activate via Settings in the web app.",
+      "",
+      "<b>Usage</b>",
+      "<code>/premium</code>",
     ].join("\n"),
   },
   {
@@ -538,6 +577,55 @@ async function handle(update: Record<string, unknown>) {
         `🧑‍⚖️ You've been added as moderator to escrow group <code>${group.id.slice(0,8)}</code>.`);
     }
     return send(`✅ Moderator invited${modProf?.display_name ? ` (${modProf.display_name})` : ""}.`);
+  }
+
+  if (text.startsWith("/profile")) {
+    const { data: p } = await supabaseAdmin.from("profiles").select("display_name, bio, trades_completed, btc_volume_usd, is_trusted, is_premium, five_star_count, created_at").eq("user_id", profile.user_id).maybeSingle();
+    if (!p) return send("Profile not found.");
+    const badges = [p.is_trusted ? "✅ Trusted" : null, p.is_premium ? "👑 Premium" : null].filter(Boolean).join(" · ") || "None";
+    return send([
+      `👤 <b>${escapeHtml(p.display_name ?? profile.display_name ?? "—")}</b>`,
+      p.bio ? `<i>${escapeHtml(p.bio)}</i>` : null,
+      "",
+      `📊 <b>Stats</b>`,
+      `Trades: ${p.trades_completed ?? 0}`,
+      `5-star reviews: ${p.five_star_count ?? 0}`,
+      `Volume: $${Number(p.btc_volume_usd ?? 0).toLocaleString()}`,
+      "",
+      `🏆 <b>Badges</b>: ${badges}`,
+      "",
+      `Joined: ${new Date(p.created_at).toLocaleDateString()}`,
+    ].filter(Boolean).join("\n"));
+  }
+
+  if (text.startsWith("/premium")) {
+    const { data: p } = await supabaseAdmin.from("profiles").select("is_premium").eq("user_id", profile.user_id).maybeSingle();
+    if (p?.is_premium) {
+      return send("👑 <b>Premium Status</b>\n\nYou have an active Premium membership.\n\nBenefits:\n• Priority dispute resolution\n• Premium badge on profile\n• Access to premium listings\n\nTo check expiry, visit Settings in the web app.");
+    }
+    return send("💎 <b>Premium Membership</b>\n\nYou are not yet a Premium member.\n\nPremium costs <b>$50 for 3 months</b> and includes:\n• 👑 Premium badge on your profile\n• Priority dispute resolution\n• Exclusive premium listings\n• Higher trade limits\n\nTo upgrade, go to: Settings → Premium in the web app, then request and pay an admin.");
+  }
+
+  if (text.startsWith("/purchases")) {
+    const { data: groups } = await supabaseAdmin
+      .from("escrow_groups")
+      .select("id, listing_id, fiat_amount, fiat_currency, released_at")
+      .eq("creator_id", profile.user_id)
+      .eq("status", "released")
+      .not("listing_id", "is", null)
+      .order("released_at", { ascending: false })
+      .limit(10);
+    if (!groups?.length) return send("🛍️ No completed marketplace purchases yet.\n\nBrowse the Marketplace at /shop and buy items with escrow protection. After release, they appear here.");
+    const listingIds = groups.map((g) => g.listing_id!);
+    const { data: listings } = await supabaseAdmin.from("listings").select("id, name").in("id", listingIds);
+    const lmap = new Map((listings ?? []).map((l) => [l.id, l.name]));
+    const lines = groups.map((g) => {
+      const name = g.listing_id ? (lmap.get(g.listing_id) ?? "Unknown") : "Unknown";
+      const price = g.fiat_amount ? ` · $${g.fiat_amount} ${g.fiat_currency ?? "USD"}` : "";
+      const date = g.released_at ? new Date(g.released_at).toLocaleDateString() : "?";
+      return `• ${escapeHtml(name)}${price} — ${date}`;
+    });
+    return send(`🛍️ <b>My Purchases (${groups.length})</b>\n\n${lines.join("\n")}\n\nFull details in web app → Trade Library`);
   }
 
   // Mirror plain (non-command) messages from a bound TG chat into the website group chat

@@ -1,7 +1,7 @@
 import { Link } from "@tanstack/react-router";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
-import { ShieldCheck } from "lucide-react";
+import { ShieldCheck, ShoppingBag } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { getMyRoles } from "@/lib/escrow.functions";
@@ -46,6 +46,10 @@ export function SiteHeader() {
           <Link to="/shop" className="px-3 py-2 text-muted-foreground hover:text-foreground" activeProps={{ className: "px-3 py-2 text-foreground" }}>Marketplace</Link>
           {user && (
             <>
+              <Link to="/trades" className="flex items-center gap-1 px-3 py-2 text-muted-foreground hover:text-foreground" activeProps={{ className: "flex items-center gap-1 px-3 py-2 text-foreground" }}>
+                <ShoppingBag className="h-3.5 w-3.5" />
+                Trades
+              </Link>
               <Link to="/escrow" className="px-3 py-2 text-muted-foreground hover:text-foreground" activeProps={{ className: "px-3 py-2 text-foreground" }}>Escrow</Link>
               <Link to="/wallet" className="px-3 py-2 text-muted-foreground hover:text-foreground" activeProps={{ className: "px-3 py-2 text-foreground" }}>Wallet</Link>
               <Link to="/settings" className="px-3 py-2 text-muted-foreground hover:text-foreground" activeProps={{ className: "px-3 py-2 text-foreground" }}>Settings</Link>
