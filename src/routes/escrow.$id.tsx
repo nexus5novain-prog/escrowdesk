@@ -364,5 +364,6 @@ function EscrowGroupPage() {
         </form>
       </div>
     </div>
+    </div>
   );
 }
