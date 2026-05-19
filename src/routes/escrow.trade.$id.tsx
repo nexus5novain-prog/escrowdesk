@@ -213,6 +213,7 @@ function EscrowTradePage() {
         </form>
       </div>
     </div>
+    </div>
   );
 }
 
