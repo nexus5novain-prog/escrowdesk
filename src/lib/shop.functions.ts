@@ -21,12 +21,25 @@ async function getAdminIds(): Promise<string[]> {
   return (data ?? []).map((r) => r.user_id);
 }
 
+export type ShopSection = "CARD" | "ENROLL" | "SCANNER" | "GENERAL";
+
+export type CardMeta = {
+  type: "card";
+  card_number: string;
+  card_name: string;
+  card_address: string;
+  card_status: "active" | "dead";
+  btc_rate: string;
+  notes: string;
+};
+
 export type ShopProduct = {
   id: string;
   user_id: string;
   name: string;
   description: string;
   category: string;
+  section: ShopSection;
   amount: number | null;
   currency: string | null;
   image_url: string | null;
@@ -34,13 +47,59 @@ export type ShopProduct = {
   status: "active" | "inactive" | "sold";
   created_at: string;
   seller_name: string | null;
+  card?: CardMeta | null;
 };
+
+function parseProduct(r: {
+  id: string; user_id: string; name: string; description: string; category: string;
+  amount: number | null; currency: string | null; contact_telegram: string | null;
+  contact_website?: string | null; status: string; created_at: string;
+}, sellerMap: Map<string, string>): ShopProduct {
+  let card: CardMeta | null = null;
+  let plainDescription = r.description;
+  const section = deriveSection(r.category);
+
+  if (section === "CARD") {
+    try {
+      const parsed = JSON.parse(r.description);
+      if (parsed?.type === "card") {
+        card = parsed as CardMeta;
+        plainDescription = parsed.notes || "";
+      }
+    } catch { /* plain text description */ }
+  }
+
+  return {
+    id: r.id,
+    user_id: r.user_id,
+    name: r.name,
+    description: plainDescription,
+    category: r.category,
+    section,
+    amount: r.amount,
+    currency: r.currency,
+    image_url: (r as Record<string, unknown>).contact_website as string | null ?? null,
+    contact_telegram: r.contact_telegram,
+    status: r.status as "active" | "inactive" | "sold",
+    created_at: r.created_at,
+    seller_name: sellerMap.get(r.user_id) ?? null,
+    card,
+  };
+}
+
+export function deriveSection(category: string): ShopSection {
+  const c = category.toUpperCase();
+  if (c === "CARD") return "CARD";
+  if (c === "ENROLL") return "ENROLL";
+  if (c === "SCANNER") return "SCANNER";
+  return "GENERAL";
+}
 
 export const listShopProducts = createServerFn({ method: "GET" })
   .inputValidator(
     z.object({
+      section: z.enum(["CARD", "ENROLL", "SCANNER", "GENERAL"]).optional(),
       q: z.string().max(120).optional(),
-      category: z.string().max(60).optional(),
     }).optional().transform((v) => v ?? {}),
   )
   .handler(async ({ data }) => {
@@ -56,8 +115,10 @@ export const listShopProducts = createServerFn({ method: "GET" })
       .order("created_at", { ascending: false })
       .limit(200);
 
+    if (data.section) {
+      q = q.eq("category", data.section);
+    }
     if (data.q) q = q.ilike("name", `%${data.q}%`);
-    if (data.category) q = q.eq("category", data.category);
 
     const { data: rows, error } = await q;
     if (error) throw new Error(error.message);
@@ -68,29 +129,16 @@ export const listShopProducts = createServerFn({ method: "GET" })
       : [];
     const pm = new Map(profs.map((p) => [p.user_id, p.display_name]));
 
-    const products: ShopProduct[] = (rows ?? []).map((r) => ({
-      id: r.id,
-      user_id: r.user_id,
-      name: r.name,
-      description: r.description,
-      category: r.category,
-      amount: r.amount,
-      currency: r.currency,
-      image_url: (r as Record<string, unknown>).contact_website as string | null,
-      contact_telegram: r.contact_telegram,
-      status: r.status as "active" | "inactive" | "sold",
-      created_at: r.created_at,
-      seller_name: pm.get(r.user_id) ?? null,
-    }));
-
-    return { products };
+    return { products: (rows ?? []).map((r) => parseProduct(r, pm)) };
   });
 
 export const adminListShopProducts = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .inputValidator(
-    z.object({ status: z.enum(["active", "inactive", "sold", "all"]).optional() })
-      .optional().transform((v) => v ?? {}),
+    z.object({
+      status: z.enum(["active", "inactive", "sold", "all"]).optional(),
+      section: z.enum(["CARD", "ENROLL", "SCANNER", "GENERAL", "all"]).optional(),
+    }).optional().transform((v) => v ?? {}),
   )
   .handler(async ({ data, context }) => {
     await requireAdminRole(context.userId);
@@ -105,6 +153,7 @@ export const adminListShopProducts = createServerFn({ method: "GET" })
       .order("created_at", { ascending: false });
 
     if (data.status && data.status !== "all") q = q.eq("status", data.status);
+    if (data.section && data.section !== "all") q = q.eq("category", data.section);
 
     const { data: rows, error } = await q;
     if (error) throw new Error(error.message);
@@ -115,22 +164,7 @@ export const adminListShopProducts = createServerFn({ method: "GET" })
       : [];
     const pm = new Map(profs.map((p) => [p.user_id, p.display_name]));
 
-    return {
-      products: (rows ?? []).map((r) => ({
-        id: r.id,
-        user_id: r.user_id,
-        name: r.name,
-        description: r.description,
-        category: r.category,
-        amount: r.amount,
-        currency: r.currency,
-        image_url: (r as Record<string, unknown>).contact_website as string | null,
-        contact_telegram: r.contact_telegram,
-        status: r.status as "active" | "inactive" | "sold",
-        created_at: r.created_at,
-        seller_name: pm.get(r.user_id) ?? null,
-      })) as ShopProduct[],
-    };
+    return { products: (rows ?? []).map((r) => parseProduct(r, pm)) };
   });
 
 export const adminCreateShopProduct = createServerFn({ method: "POST" })
@@ -138,8 +172,8 @@ export const adminCreateShopProduct = createServerFn({ method: "POST" })
   .inputValidator(
     z.object({
       name: z.string().trim().min(2).max(120),
-      description: z.string().trim().min(5).max(2000),
-      category: z.string().trim().min(2).max(60),
+      description: z.string().trim().min(1).max(5000),
+      section: z.enum(["CARD", "ENROLL", "SCANNER", "GENERAL"]),
       amount: z.number().nonnegative(),
       currency: z.string().trim().min(3).max(8).default("USD"),
       contact_telegram: z.string().trim().max(60).optional(),
@@ -155,7 +189,7 @@ export const adminCreateShopProduct = createServerFn({ method: "POST" })
         kind: "selling",
         name: data.name,
         description: data.description,
-        category: data.category,
+        category: data.section,
         amount: data.amount,
         currency: data.currency,
         contact_telegram: data.contact_telegram || null,
@@ -174,8 +208,8 @@ export const adminUpdateShopProduct = createServerFn({ method: "POST" })
     z.object({
       id: z.string().uuid(),
       name: z.string().trim().min(2).max(120).optional(),
-      description: z.string().trim().min(5).max(2000).optional(),
-      category: z.string().trim().min(2).max(60).optional(),
+      description: z.string().trim().min(1).max(5000).optional(),
+      section: z.enum(["CARD", "ENROLL", "SCANNER", "GENERAL"]).optional(),
       amount: z.number().nonnegative().optional(),
       currency: z.string().trim().min(3).max(8).optional(),
       contact_telegram: z.string().trim().max(60).optional(),
@@ -185,11 +219,11 @@ export const adminUpdateShopProduct = createServerFn({ method: "POST" })
   )
   .handler(async ({ data, context }) => {
     await requireAdminRole(context.userId);
-    const { id, image_url, ...rest } = data;
+    const { id, image_url, section, ...rest } = data;
     const update: Record<string, unknown> = {};
     if (rest.name !== undefined) update.name = rest.name;
     if (rest.description !== undefined) update.description = rest.description;
-    if (rest.category !== undefined) update.category = rest.category;
+    if (section !== undefined) update.category = section;
     if (rest.amount !== undefined) update.amount = rest.amount;
     if (rest.currency !== undefined) update.currency = rest.currency;
     if (rest.contact_telegram !== undefined) update.contact_telegram = rest.contact_telegram || null;
@@ -215,18 +249,20 @@ export const adminGetShopStats = createServerFn({ method: "GET" })
   .handler(async ({ context }) => {
     await requireAdminRole(context.userId);
     const adminIds = await getAdminIds();
-    if (!adminIds.length) return { total: 0, active: 0, inactive: 0, sold: 0, revenue: 0 };
+    if (!adminIds.length) return { total: 0, active: 0, inactive: 0, sold: 0, bySection: {} as Record<string, number> };
     const { data: rows } = await supabaseAdmin
       .from("listings")
-      .select("status,amount")
+      .select("status,amount,category")
       .in("user_id", adminIds)
       .eq("kind", "selling");
     const r = rows ?? [];
+    const bySection: Record<string, number> = { CARD: 0, ENROLL: 0, SCANNER: 0, GENERAL: 0 };
+    r.forEach((x) => { const s = (x.category ?? "GENERAL").toUpperCase(); if (s in bySection) bySection[s]++; });
     return {
       total: r.length,
       active: r.filter((x) => x.status === "active").length,
       inactive: r.filter((x) => x.status === "inactive").length,
       sold: r.filter((x) => x.status === "sold").length,
-      revenue: r.filter((x) => x.status === "sold").reduce((s, x) => s + (Number(x.amount) || 0), 0),
+      bySection,
     };
   });
