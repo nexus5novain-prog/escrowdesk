@@ -1,128 +1,79 @@
-## 1. Wallet page rework
+## Scope
 
-- Remove deposit UI entirely.
-- Replace single balance with **per-asset PnL** (Earned − Spent) for BTC, USDT-TRC20, USDC, ETH, plus a lifetime USD summary (Total earned, Total spent, Net).
-  - Earned = sum of `wallet_transactions` of kind `escrow_release` credited to user as seller.
-  - Spent = sum of `crypto_amount` from `trades` where user is buyer and status='released'.
-  - USD totals derived from `trades.fiat_amount`.
-- Replace deposit panel with **Add Wallet Address** form, one input per accepted coin:
-  - BTC, USDT (TRC20), USDC (chain selectable: ERC20 / TRC20), ETH.
-  - Stored on `profiles` as new columns (see schema below).
-- Keep the Trusted / Premium milestone journey panel as-is.
+Restructure the app around three clearly separated modules. Marketplace stays untouched. The existing Shop page (currently `/shop`, code in `src/routes/shop.tsx`) gets renamed to be the real Shop; a brand-new Order Book page is built; every escrow concept currently living on the Trades page moves into the Escrow section.
 
-## 2. Escrow bank system — multi-coin
+## What stays the same
 
-- Extend the `asset_type` enum to include `USDC` and `ETH` (currently `BTC`, `USDT`).
-- Every trade must record which payout address of the seller will receive funds, and which address of the buyer is funding escrow — snapshotted on the trade row so address rotations don't break history.
-- Buyer's tx hash (on-chain deposit reference) becomes a required field before seller can confirm deposit.
+- `src/routes/marketplace.tsx` and every component/server-fn it imports — no edits.
+- All marketplace navigation links, post-listing, listing detail pages.
+- All Supabase tables, RPCs, RLS — no schema changes needed.
 
-## 3. Escrow Groups (new core feature)
+## 1. Shop vs Order Book split
 
-A reusable "room" that owns the trade chat, terms, deposit address, tx hash, and participants. Two creation paths:
+Current state:
+- `src/routes/shop.tsx` (URL `/shop`) is internally titled "Order Book" and uses `store.functions.ts` (which is broken — references a non-existent `store_products` table). It's a half-built storefront, not an order book.
+- There is no dedicated order-book UI today.
 
-- **From marketplace**: clicking a listing's "Trade" button auto-creates a group with the buyer + listing owner (seller).
-- **Manual**: any user can open `/escrow/new`, invite a counterparty by site username OR Telegram username, and pick coin/amount.
-
-Each group supports:
-- Invite **moderator (judge)** button — pings staff with `judge` role; first to accept joins the group.
-- In-app chat (reuses `trade_messages` realtime).
-- Selected escrow bank address (seller's payout address for the chosen coin).
-- Amount + coin.
-- **Tx hash submission** by the group creator (buyer) once funds are sent on-chain. Seller verifies → releases.
-- Optional Telegram mirror — see §4.
-
-## 4. Telegram parity
-
-Telegram bots cannot create groups. Flow:
-1. Buyer clicks "Open in Telegram" in the group → bot DM gives them a `t.me/...?startgroup=<token>` deep link.
-2. Buyer creates the group in Telegram, adds the bot, and (optionally) the seller's @username.
-3. Bot binds that Telegram chat to the escrow group via the start token, then mirrors messages both ways between Telegram and the website chat.
-4. `/invite_moderator` slash command pings a staff judge.
-5. `/txhash <hash>` and `/release` commands available to the right participants.
-
-## Technical details
-
-### Schema (new migration)
-
-```text
-alter type asset_type add value 'USDC';
-alter type asset_type add value 'ETH';
-
-alter table profiles
-  add column wallet_address_usdc text,
-  add column wallet_address_usdc_chain text default 'ERC20',
-  add column wallet_address_eth text;
-
-create table escrow_groups (
-  id uuid pk,
-  creator_id uuid,           -- buyer
-  counterparty_id uuid null,  -- seller (null until accepted if invited by tg handle)
-  invited_telegram text null,
-  invited_username text null,
-  listing_id uuid null,       -- if created from marketplace
-  trade_id uuid null,         -- once escrow proper begins
-  asset asset_type,
-  amount numeric,
-  fiat_amount numeric null,
-  fiat_currency text default 'USD',
-  escrow_address text,        -- seller's payout addr snapshot
-  deposit_tx_hash text null,
-  status text  -- 'awaiting_counterparty' | 'active' | 'funded' | 'released' | 'cancelled' | 'disputed'
-  telegram_chat_id bigint null,
-  telegram_link_token text unique,
-  created_at, updated_at
-);
-
-create table escrow_group_members (
-  group_id uuid, user_id uuid, role text  -- 'buyer'|'seller'|'moderator'
-  primary key (group_id, user_id)
-);
+Target:
+```
+/shop        → src/routes/shop.tsx        — Shop storefront (curated listings, products, services)
+/order-book  → src/routes/order-book.tsx  — NEW: live P2P offer order-book (buy/sell offers, price ladder)
 ```
 
-Group chat uses existing `trade_messages` keyed by a synthetic trade once funding starts, or a new `escrow_group_messages` table — I'll add the latter to avoid coupling.
+Actions:
+- Rewrite `src/routes/shop.tsx` as the real Shop page: lists `kind='product'` and `kind='service'` listings from the `listings` table via a new `listShopItems` server fn in `src/lib/marketplace.functions.ts`. Buying flow funnels into the existing auto-escrow path (same as marketplace).
+- Create `src/routes/order-book.tsx` as the new Order Book: reads from `offers` table, groups by asset/side, shows live bid/ask ladder, click-to-trade opens existing trade flow. Realtime subscription on `offers`.
+- Delete `src/lib/store.functions.ts` (broken, references missing table) and any imports.
+- Header: keep "Shop" link pointing to `/shop`, add "Order Book" link pointing to `/order-book`.
 
-### Server functions (`src/lib/escrow-groups.functions.ts`)
+## 2. Migrate escrow features from Trades → Escrow
 
-- `createEscrowGroup({ asset, amount, counterparty: { username? | telegram? }, listing_id? })`
-- `acceptGroupInvite({ group_id })`
-- `inviteModerator({ group_id })`
-- `submitTxHash({ group_id, hash })`
-- `confirmDepositReceived({ group_id })` → spins up actual `trades` row + locks escrow
-- `releaseEscrowGroup({ group_id })`
-- `sendGroupMessage` / `getEscrowGroup`
-- All gated by `requireSupabaseAuth` and membership checks.
+Current state:
+- `src/routes/trades.tsx` (URL `/trades`) shows 4 stat cards (open/successful/failed/pending) + lists escrow groups via `listMyEscrowGroups`.
+- `src/routes/escrow.tsx` (URL `/escrow`) is a near-identical dashboard for escrow groups.
+- `src/routes/trade.$id.tsx` and `src/routes/escrow.trade.$id.tsx` are duplicated trade-room pages.
 
-### Telegram webhook additions
+Target:
+```
+/escrow              → escrow dashboard (4 stat cards + active escrows + purchases + history) — primary
+/escrow/$id          → escrow group detail (existing)
+/escrow/new          → manual escrow wizard (existing)
+/escrow/trade/$id    → live trade room (signing, deposit confirm, release, chat, ratings)
+/trades              → REMOVED
+/trade/$id           → REMOVED (redirect to /escrow/trade/$id)
+```
 
-- Handle `/start <link_token>` in groups → bind `telegram_chat_id`.
-- Handle `/invite_moderator`, `/txhash`, `/release`.
-- Mirror website→Telegram on insert via realtime subscriber in webhook handler (or a server fn that fans out).
+Actions:
+- Make `src/routes/escrow.tsx` the canonical dashboard: fold in any unique copy/links from `trades.tsx` (the four stat cards and active list are already present in `escrow.tsx`).
+- Delete `src/routes/trades.tsx`.
+- Delete `src/routes/trade.$id.tsx` (kept logic already lives in `escrow.trade.$id.tsx`).
+- Update every `<Link to="/trades">` → `<Link to="/escrow">` and every `<Link to="/trade/$id">` → `<Link to="/escrow/trade/$id">` across components and routes (header, marketplace auto-escrow redirect, escrow group "open trade" buttons, admin links, etc.).
 
-### Frontend
+## 3. Escrow module finalization
 
-- `src/routes/wallet.tsx` rewritten: PnL view + multi-coin address inputs.
-- `src/routes/escrow.new.tsx` — group creation wizard.
-- `src/routes/escrow.$id.tsx` — group detail page with chat, deposit panel, tx hash submission, invite moderator button, "Open in Telegram" button.
-- `src/routes/index.tsx` (Marketplace): "Trade" CTA on each listing → calls `createEscrowGroup` then redirects to group page.
-- `src/components/SiteHeader.tsx`: new "Escrow" nav.
+- Confirm escrow creation flows: `/escrow/new` wizard + marketplace auto-escrow both create groups via `createEscrowGroup`. No changes needed beyond link updates.
+- Confirm escrow management surfaces: dashboard at `/escrow`, group detail at `/escrow/$id`, trade room at `/escrow/trade/$id`. Realtime subscriptions on `escrow_groups` + `escrow_group_messages` already wired.
+- Telegram bot commands: existing `src/routes/api/public/telegram/webhook.ts` continues to mirror messages and handle `/start <token>` linking; no command changes required by this restructure. (If the user wants new bot commands, that is a separate scope and I'll ask before adding.)
 
-### Migration / behavior of existing trades
+## 4. Cleanup & build correctness
 
-Existing `trades` rows continue to work via the original `/trade/$id` page. New trades originating from escrow groups will have `trade_id` linked back to the group; the group page shows the same data plus the new fields.
+- Remove unused imports and dead code introduced by file deletions.
+- Fix the lingering TypeScript errors in `escrow-groups.functions.ts` (asset literal type — `"USDT" | "USDC" | "ETH"` not comparable to `"BTC"`-only union; loosen the asset switch).
+- Fix `trades.tsx` / `escrow.tsx` `data` typing on `useQuery` (annotate so `data.stats` / `data.groups` resolve).
+- Delete stale references in `src/components/SiteHeader.tsx` to removed routes.
+- Update `src/routes/__root.tsx` 404 fallback link target (currently `/` — fine).
+- Run a full build; iterate until green.
 
-## Build sequence
+## Out of scope (call out, do not silently do)
 
-1. Schema migration (assets + profile cols + escrow_groups + messages).
-2. Wallet page rewrite (PnL + multi-coin addresses).
-3. Escrow group server functions + website UI (create, invite, chat, tx hash, release).
-4. Marketplace "Trade" CTA wiring.
-5. Telegram webhook commands + group binding + mirror.
-6. Test end-to-end on a sample group.
+- I cannot run `git commit` / `git push` — git state is managed by the Lovable harness, not by the agent. Changes are saved automatically to the project and you can publish from the UI.
+- No database migrations are performed.
+- Marketplace UI/UX is untouched per your instruction.
 
-## Open assumptions (flag if wrong)
+## Technical notes
 
-- "USDC" defaults to ERC20 but user can switch to TRC20 via dropdown.
-- ETH = native Ether (not an ERC20 token list).
-- Moderator = any user with `judge` role in `user_roles`. First to accept the ping joins.
-- Telegram mirroring is best-effort (no guaranteed ordering between web↔TG).
-- Existing `/trade/$id` page stays for legacy trades; escrow groups become the new default path.
+- Route deletions: removing a `src/routes/*.tsx` file regenerates `routeTree.gen.ts` automatically; no manual edits to that file.
+- For `/trade/$id` callers we don't actually need a redirect file since nothing external links there — internal links are updated to `/escrow/trade/$id`. If you want a redirect kept for safety, say so and I'll add a tiny `trade.$id.tsx` that `throw redirect(...)` in `beforeLoad`.
+- Order Book uses the existing `offers` table + `start_trade` RPC already in the DB; no new server fns beyond a thin `listOpenOffers` query.
+
+Ready to implement on approval.

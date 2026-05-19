@@ -6,7 +6,7 @@ import { tgSendMessage } from "./telegram.server";
 
 type ProfileLite = { user_id: string; display_name: string; telegram_user_id: number | null; telegram_username: string | null; wallet_address_btc: string | null };
 
-const ASSETS = ["BTC"] as const;
+const ASSETS = ["BTC", "USDT", "USDC", "ETH"] as const;
 type Asset = typeof ASSETS[number];
 
 async function loadProfiles(userIds: string[]) {
@@ -18,13 +18,15 @@ async function loadProfiles(userIds: string[]) {
   return new Map((data ?? []).map((p) => [p.user_id, p as ProfileLite]));
 }
 
+type ListingLite = { id: string; name: string; description: string; category: string; contact_website: string | null; currency: string | null; amount: number | null };
+
 async function loadListings(listingIds: string[]) {
-  if (!listingIds.length) return new Map<string, Record<string, unknown>>();
+  if (!listingIds.length) return new Map<string, ListingLite>();
   const { data } = await supabaseAdmin
     .from("listings")
     .select("id, name, description, category, contact_website, currency, amount")
     .in("id", listingIds);
-  return new Map((data ?? []).map((row) => [row.id, row]));
+  return new Map((data ?? []).map((row) => [row.id, row as ListingLite]));
 }
 
 async function getSellerPayoutAddress(userId: string, asset: Asset): Promise<{ address: string | null; chain: string | null }> {

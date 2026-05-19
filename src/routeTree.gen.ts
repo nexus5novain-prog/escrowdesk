@@ -10,17 +10,16 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as WalletRouteImport } from './routes/wallet'
-import { Route as TradesRouteImport } from './routes/trades'
 import { Route as ShopRouteImport } from './routes/shop'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as PostOfferRouteImport } from './routes/post-offer'
 import { Route as PostListingRouteImport } from './routes/post-listing'
+import { Route as OrderBookRouteImport } from './routes/order-book'
 import { Route as MarketplaceRouteImport } from './routes/marketplace'
 import { Route as EscrowRouteImport } from './routes/escrow'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AdminRouteImport } from './routes/admin'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as TradeIdRouteImport } from './routes/trade.$id'
 import { Route as OfferIdRouteImport } from './routes/offer.$id'
 import { Route as EscrowNewRouteImport } from './routes/escrow.new'
 import { Route as EscrowIdRouteImport } from './routes/escrow.$id'
@@ -31,11 +30,6 @@ import { Route as ApiPublicTelegramSetupRouteImport } from './routes/api/public/
 const WalletRoute = WalletRouteImport.update({
   id: '/wallet',
   path: '/wallet',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const TradesRoute = TradesRouteImport.update({
-  id: '/trades',
-  path: '/trades',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ShopRoute = ShopRouteImport.update({
@@ -56,6 +50,11 @@ const PostOfferRoute = PostOfferRouteImport.update({
 const PostListingRoute = PostListingRouteImport.update({
   id: '/post-listing',
   path: '/post-listing',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const OrderBookRoute = OrderBookRouteImport.update({
+  id: '/order-book',
+  path: '/order-book',
   getParentRoute: () => rootRouteImport,
 } as any)
 const MarketplaceRoute = MarketplaceRouteImport.update({
@@ -81,11 +80,6 @@ const AdminRoute = AdminRouteImport.update({
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const TradeIdRoute = TradeIdRouteImport.update({
-  id: '/trade/$id',
-  path: '/trade/$id',
   getParentRoute: () => rootRouteImport,
 } as any)
 const OfferIdRoute = OfferIdRouteImport.update({
@@ -126,16 +120,15 @@ export interface FileRoutesByFullPath {
   '/auth': typeof AuthRoute
   '/escrow': typeof EscrowRouteWithChildren
   '/marketplace': typeof MarketplaceRoute
+  '/order-book': typeof OrderBookRoute
   '/post-listing': typeof PostListingRoute
   '/post-offer': typeof PostOfferRoute
   '/settings': typeof SettingsRoute
   '/shop': typeof ShopRoute
-  '/trades': typeof TradesRoute
   '/wallet': typeof WalletRoute
   '/escrow/$id': typeof EscrowIdRoute
   '/escrow/new': typeof EscrowNewRoute
   '/offer/$id': typeof OfferIdRoute
-  '/trade/$id': typeof TradeIdRoute
   '/escrow/trade/$id': typeof EscrowTradeIdRoute
   '/api/public/telegram/setup': typeof ApiPublicTelegramSetupRoute
   '/api/public/telegram/webhook': typeof ApiPublicTelegramWebhookRoute
@@ -146,16 +139,15 @@ export interface FileRoutesByTo {
   '/auth': typeof AuthRoute
   '/escrow': typeof EscrowRouteWithChildren
   '/marketplace': typeof MarketplaceRoute
+  '/order-book': typeof OrderBookRoute
   '/post-listing': typeof PostListingRoute
   '/post-offer': typeof PostOfferRoute
   '/settings': typeof SettingsRoute
   '/shop': typeof ShopRoute
-  '/trades': typeof TradesRoute
   '/wallet': typeof WalletRoute
   '/escrow/$id': typeof EscrowIdRoute
   '/escrow/new': typeof EscrowNewRoute
   '/offer/$id': typeof OfferIdRoute
-  '/trade/$id': typeof TradeIdRoute
   '/escrow/trade/$id': typeof EscrowTradeIdRoute
   '/api/public/telegram/setup': typeof ApiPublicTelegramSetupRoute
   '/api/public/telegram/webhook': typeof ApiPublicTelegramWebhookRoute
@@ -167,16 +159,15 @@ export interface FileRoutesById {
   '/auth': typeof AuthRoute
   '/escrow': typeof EscrowRouteWithChildren
   '/marketplace': typeof MarketplaceRoute
+  '/order-book': typeof OrderBookRoute
   '/post-listing': typeof PostListingRoute
   '/post-offer': typeof PostOfferRoute
   '/settings': typeof SettingsRoute
   '/shop': typeof ShopRoute
-  '/trades': typeof TradesRoute
   '/wallet': typeof WalletRoute
   '/escrow/$id': typeof EscrowIdRoute
   '/escrow/new': typeof EscrowNewRoute
   '/offer/$id': typeof OfferIdRoute
-  '/trade/$id': typeof TradeIdRoute
   '/escrow/trade/$id': typeof EscrowTradeIdRoute
   '/api/public/telegram/setup': typeof ApiPublicTelegramSetupRoute
   '/api/public/telegram/webhook': typeof ApiPublicTelegramWebhookRoute
@@ -189,16 +180,15 @@ export interface FileRouteTypes {
     | '/auth'
     | '/escrow'
     | '/marketplace'
+    | '/order-book'
     | '/post-listing'
     | '/post-offer'
     | '/settings'
     | '/shop'
-    | '/trades'
     | '/wallet'
     | '/escrow/$id'
     | '/escrow/new'
     | '/offer/$id'
-    | '/trade/$id'
     | '/escrow/trade/$id'
     | '/api/public/telegram/setup'
     | '/api/public/telegram/webhook'
@@ -209,16 +199,15 @@ export interface FileRouteTypes {
     | '/auth'
     | '/escrow'
     | '/marketplace'
+    | '/order-book'
     | '/post-listing'
     | '/post-offer'
     | '/settings'
     | '/shop'
-    | '/trades'
     | '/wallet'
     | '/escrow/$id'
     | '/escrow/new'
     | '/offer/$id'
-    | '/trade/$id'
     | '/escrow/trade/$id'
     | '/api/public/telegram/setup'
     | '/api/public/telegram/webhook'
@@ -229,16 +218,15 @@ export interface FileRouteTypes {
     | '/auth'
     | '/escrow'
     | '/marketplace'
+    | '/order-book'
     | '/post-listing'
     | '/post-offer'
     | '/settings'
     | '/shop'
-    | '/trades'
     | '/wallet'
     | '/escrow/$id'
     | '/escrow/new'
     | '/offer/$id'
-    | '/trade/$id'
     | '/escrow/trade/$id'
     | '/api/public/telegram/setup'
     | '/api/public/telegram/webhook'
@@ -250,14 +238,13 @@ export interface RootRouteChildren {
   AuthRoute: typeof AuthRoute
   EscrowRoute: typeof EscrowRouteWithChildren
   MarketplaceRoute: typeof MarketplaceRoute
+  OrderBookRoute: typeof OrderBookRoute
   PostListingRoute: typeof PostListingRoute
   PostOfferRoute: typeof PostOfferRoute
   SettingsRoute: typeof SettingsRoute
   ShopRoute: typeof ShopRoute
-  TradesRoute: typeof TradesRoute
   WalletRoute: typeof WalletRoute
   OfferIdRoute: typeof OfferIdRoute
-  TradeIdRoute: typeof TradeIdRoute
   ApiPublicTelegramSetupRoute: typeof ApiPublicTelegramSetupRoute
   ApiPublicTelegramWebhookRoute: typeof ApiPublicTelegramWebhookRoute
 }
@@ -269,13 +256,6 @@ declare module '@tanstack/react-router' {
       path: '/wallet'
       fullPath: '/wallet'
       preLoaderRoute: typeof WalletRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/trades': {
-      id: '/trades'
-      path: '/trades'
-      fullPath: '/trades'
-      preLoaderRoute: typeof TradesRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/shop': {
@@ -304,6 +284,13 @@ declare module '@tanstack/react-router' {
       path: '/post-listing'
       fullPath: '/post-listing'
       preLoaderRoute: typeof PostListingRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/order-book': {
+      id: '/order-book'
+      path: '/order-book'
+      fullPath: '/order-book'
+      preLoaderRoute: typeof OrderBookRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/marketplace': {
@@ -339,13 +326,6 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/trade/$id': {
-      id: '/trade/$id'
-      path: '/trade/$id'
-      fullPath: '/trade/$id'
-      preLoaderRoute: typeof TradeIdRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/offer/$id': {
@@ -414,27 +394,16 @@ const rootRouteChildren: RootRouteChildren = {
   AuthRoute: AuthRoute,
   EscrowRoute: EscrowRouteWithChildren,
   MarketplaceRoute: MarketplaceRoute,
+  OrderBookRoute: OrderBookRoute,
   PostListingRoute: PostListingRoute,
   PostOfferRoute: PostOfferRoute,
   SettingsRoute: SettingsRoute,
   ShopRoute: ShopRoute,
-  TradesRoute: TradesRoute,
   WalletRoute: WalletRoute,
   OfferIdRoute: OfferIdRoute,
-  TradeIdRoute: TradeIdRoute,
   ApiPublicTelegramSetupRoute: ApiPublicTelegramSetupRoute,
   ApiPublicTelegramWebhookRoute: ApiPublicTelegramWebhookRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}
