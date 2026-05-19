@@ -44,10 +44,10 @@ export function SiteHeader() {
           <Link to="/" className="px-3 py-2 text-muted-foreground hover:text-foreground" activeProps={{ className: "px-3 py-2 text-foreground" }}>Home</Link>
           <Link to="/marketplace" className="px-3 py-2 text-muted-foreground hover:text-foreground" activeProps={{ className: "px-3 py-2 text-foreground" }}>Marketplace</Link>
           <Link to="/shop" className="px-3 py-2 text-muted-foreground hover:text-foreground" activeProps={{ className: "px-3 py-2 text-foreground" }}>Shop</Link>
+          <Link to="/order-book" className="px-3 py-2 text-muted-foreground hover:text-foreground" activeProps={{ className: "px-3 py-2 text-foreground" }}>Order Book</Link>
           {user && (
             <>
               <Link to="/escrow" className="px-3 py-2 text-muted-foreground hover:text-foreground" activeProps={{ className: "px-3 py-2 text-foreground" }}>Escrow</Link>
-              <Link to="/wallet" className="px-3 py-2 text-muted-foreground hover:text-foreground" activeProps={{ className: "px-3 py-2 text-foreground" }}>Wallet</Link>
               <Link to="/wallet" className="px-3 py-2 text-muted-foreground hover:text-foreground" activeProps={{ className: "px-3 py-2 text-foreground" }}>Wallet</Link>
               <Link to="/settings" className="px-3 py-2 text-muted-foreground hover:text-foreground" activeProps={{ className: "px-3 py-2 text-foreground" }}>Settings</Link>
               {isStaff && (
