@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { AuthGate } from "@/components/AuthGate";
 import { useServerFn } from "@tanstack/react-start";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import {
   adminListDisputes, adminResolveDispute, adminSetFee, adminMakeMeAdmin, getMe,
@@ -11,13 +11,23 @@ import {
   adminListUsers, adminBanUser, adminUnbanUser, adminWarnUser,
   adminAssignRole, adminRevokeRole, adminUnlinkTelegram, adminListWarnings,
 } from "@/lib/escrow.functions";
+import {
+  adminListShopProducts, adminCreateShopProduct, adminUpdateShopProduct,
+  adminDeleteShopProduct, adminGetShopStats, type ShopProduct,
+} from "@/lib/shop.functions";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { toast } from "sonner";
+import {
+  Package, PlusCircle, Pencil, Trash2, Eye, EyeOff, ShoppingBag,
+  CheckCircle2, XCircle, Search, ImageIcon, DollarSign,
+} from "lucide-react";
 
 export const Route = createFileRoute("/admin")({ component: () => (<AuthGate><Admin /></AuthGate>) });
 
@@ -49,8 +59,9 @@ function Admin() {
         </div>
       </section>
       <div className="text-lg font-semibold">Admin tools and platform controls</div>
-      <Tabs defaultValue="disputes">
-        <TabsList>
+      <Tabs defaultValue="shop">
+        <TabsList className="flex-wrap">
+          <TabsTrigger value="shop" className="gap-1.5"><ShoppingBag className="h-3.5 w-3.5" />Shop</TabsTrigger>
           <TabsTrigger value="disputes">Disputes</TabsTrigger>
           <TabsTrigger value="offers">Offers</TabsTrigger>
           <TabsTrigger value="trades">Trades</TabsTrigger>
@@ -59,6 +70,7 @@ function Admin() {
           <TabsTrigger value="telegram">Telegram</TabsTrigger>
           <TabsTrigger value="settings">Settings</TabsTrigger>
         </TabsList>
+        <TabsContent value="shop" className="mt-4"><ShopPanel /></TabsContent>
         <TabsContent value="disputes" className="mt-4"><DisputesPanel /></TabsContent>
         <TabsContent value="offers" className="mt-4"><OffersPanel /></TabsContent>
         <TabsContent value="trades" className="mt-4"><TradesPanel /></TabsContent>
@@ -438,6 +450,417 @@ function WarningsPanel() {
         ))}
         {warnings.length === 0 && <div className="text-sm text-muted-foreground">No warnings issued.</div>}
       </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SHOP PANEL
+// ─────────────────────────────────────────────────────────────────────────────
+
+type ProductForm = {
+  name: string;
+  category: string;
+  amount: string;
+  currency: string;
+  description: string;
+  image_url: string;
+  contact_telegram: string;
+};
+
+const BLANK_FORM: ProductForm = {
+  name: "", category: "", amount: "", currency: "USD",
+  description: "", image_url: "", contact_telegram: "",
+};
+
+const PRESET_CATEGORIES = [
+  "Software", "Services", "Digital", "Accounts",
+  "Templates", "Courses", "Tools", "Other",
+];
+
+function ProductFormDialog({
+  open, onClose, initial, onSave, title,
+}: {
+  open: boolean;
+  onClose: () => void;
+  initial: ProductForm;
+  onSave: (form: ProductForm) => Promise<void>;
+  title: string;
+}) {
+  const [form, setForm] = useState<ProductForm>(initial);
+  const [saving, setSaving] = useState(false);
+  const set = (k: keyof ProductForm) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) =>
+    setForm((f) => ({ ...f, [k]: e.target.value }));
+
+  useEffect(() => { if (open) setForm(initial); }, [open, initial]);
+
+  const submit = async () => {
+    if (!form.name.trim() || !form.category.trim() || !form.description.trim()) {
+      toast.error("Name, category and description are required"); return;
+    }
+    const amt = parseFloat(form.amount);
+    if (isNaN(amt) || amt < 0) { toast.error("Enter a valid price"); return; }
+    setSaving(true);
+    try { await onSave({ ...form, amount: String(amt) }); onClose(); }
+    catch (e) { toast.error((e as Error).message); }
+    finally { setSaving(false); }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={(v) => { if (!v) onClose(); }}>
+      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Package className="h-4 w-4 text-primary" /> {title}
+          </DialogTitle>
+        </DialogHeader>
+
+        <div className="space-y-4 py-2">
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Product Name *</label>
+            <Input placeholder="e.g. Premium VPN Account" value={form.name} onChange={set("name")} />
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Category *</label>
+              <Input
+                list="shop-categories"
+                placeholder="e.g. Software"
+                value={form.category}
+                onChange={set("category")}
+              />
+              <datalist id="shop-categories">
+                {PRESET_CATEGORIES.map((c) => <option key={c} value={c} />)}
+              </datalist>
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Currency</label>
+              <Select value={form.currency} onValueChange={(v) => setForm((f) => ({ ...f, currency: v }))}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {["USD","EUR","GBP","USDT","BTC"].map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium uppercase tracking-wider text-muted-foreground flex items-center gap-1">
+              <DollarSign className="h-3 w-3" /> Price *
+            </label>
+            <Input
+              type="number"
+              min="0"
+              step="0.01"
+              placeholder="0.00"
+              value={form.amount}
+              onChange={set("amount")}
+              className="font-mono"
+            />
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Description *</label>
+            <Textarea
+              placeholder="Describe the product or service in detail…"
+              value={form.description}
+              onChange={set("description")}
+              rows={4}
+              className="resize-none"
+            />
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium uppercase tracking-wider text-muted-foreground flex items-center gap-1">
+              <ImageIcon className="h-3 w-3" /> Image URL (optional)
+            </label>
+            <Input
+              placeholder="https://example.com/image.jpg"
+              value={form.image_url}
+              onChange={set("image_url")}
+            />
+            {form.image_url && form.image_url.startsWith("http") && (
+              <img src={form.image_url} alt="preview" className="mt-2 h-24 w-full rounded-md object-cover border border-border/40" />
+            )}
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Support Telegram (optional)</label>
+            <Input
+              placeholder="username (without @)"
+              value={form.contact_telegram}
+              onChange={set("contact_telegram")}
+            />
+          </div>
+        </div>
+
+        <DialogFooter className="gap-2">
+          <Button variant="outline" onClick={onClose} disabled={saving}>Cancel</Button>
+          <Button onClick={submit} disabled={saving}>
+            {saving ? "Saving…" : "Save Product"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function ShopPanel() {
+  const qc = useQueryClient();
+  const listProducts = useServerFn(adminListShopProducts);
+  const getStats = useServerFn(adminGetShopStats);
+  const doCreate = useServerFn(adminCreateShopProduct);
+  const doUpdate = useServerFn(adminUpdateShopProduct);
+  const doDelete = useServerFn(adminDeleteShopProduct);
+
+  const [statusFilter, setStatusFilter] = useState<"all" | "active" | "inactive" | "sold">("all");
+  const [search, setSearch] = useState("");
+  const [creating, setCreating] = useState(false);
+  const [editing, setEditing] = useState<ShopProduct | null>(null);
+
+  const { data: statsRaw, refetch: refetchStats } = useQuery({
+    queryKey: ["shop-stats"],
+    queryFn: () => getStats(),
+  });
+  const stats = statsRaw as { total: number; active: number; inactive: number; sold: number; revenue: number } | undefined;
+
+  const { data, refetch } = useQuery({
+    queryKey: ["admin-shop-products", statusFilter],
+    queryFn: () => listProducts({ data: { status: statusFilter } }),
+  });
+  const products = ((data as { products: ShopProduct[] } | undefined)?.products ?? []).filter((p) =>
+    !search || p.name.toLowerCase().includes(search.toLowerCase()) || p.category.toLowerCase().includes(search.toLowerCase()),
+  );
+
+  const refresh = () => { refetch(); refetchStats(); qc.invalidateQueries({ queryKey: ["shop-products"] }); };
+
+  const handleCreate = async (form: ProductForm) => {
+    await doCreate({
+      data: {
+        name: form.name, category: form.category, amount: parseFloat(form.amount),
+        currency: form.currency, description: form.description,
+        image_url: form.image_url || undefined, contact_telegram: form.contact_telegram || undefined,
+      },
+    });
+    toast.success("Product published to marketplace");
+    refresh();
+  };
+
+  const handleUpdate = async (form: ProductForm) => {
+    if (!editing) return;
+    await doUpdate({
+      data: {
+        id: editing.id, name: form.name, category: form.category,
+        amount: parseFloat(form.amount), currency: form.currency,
+        description: form.description, image_url: form.image_url,
+        contact_telegram: form.contact_telegram,
+      },
+    });
+    toast.success("Product updated");
+    refresh();
+  };
+
+  const toggleStatus = async (p: ShopProduct) => {
+    const next = p.status === "active" ? "inactive" : "active";
+    try {
+      await doUpdate({ data: { id: p.id, status: next } });
+      toast.success(`Product ${next === "active" ? "published" : "hidden"}`);
+      refresh();
+    } catch (e) { toast.error((e as Error).message); }
+  };
+
+  const markSold = async (p: ShopProduct) => {
+    if (!window.confirm(`Mark "${p.name}" as sold out?`)) return;
+    try {
+      await doUpdate({ data: { id: p.id, status: "sold" } });
+      toast.success("Marked as sold out");
+      refresh();
+    } catch (e) { toast.error((e as Error).message); }
+  };
+
+  const handleDelete = async (p: ShopProduct) => {
+    if (!window.confirm(`Permanently delete "${p.name}"? This cannot be undone.`)) return;
+    try {
+      await doDelete({ data: { id: p.id } });
+      toast.success("Product deleted");
+      refresh();
+    } catch (e) { toast.error((e as Error).message); }
+  };
+
+  const editForm = editing ? {
+    name: editing.name, category: editing.category,
+    amount: String(editing.amount ?? ""), currency: editing.currency ?? "USD",
+    description: editing.description, image_url: editing.image_url ?? "",
+    contact_telegram: editing.contact_telegram ?? "",
+  } : BLANK_FORM;
+
+  return (
+    <div className="space-y-5">
+      {/* Stats */}
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        {[
+          { label: "Total Products", value: stats?.total ?? 0, icon: Package, color: "text-primary" },
+          { label: "Active", value: stats?.active ?? 0, icon: CheckCircle2, color: "text-emerald-500" },
+          { label: "Hidden", value: stats?.inactive ?? 0, icon: EyeOff, color: "text-amber-500" },
+          { label: "Sold Out", value: stats?.sold ?? 0, icon: XCircle, color: "text-muted-foreground" },
+        ].map(({ label, value, icon: Icon, color }) => (
+          <div key={label} className="surface rounded-xl p-4">
+            <div className={`flex items-center gap-2 text-xs uppercase tracking-wider text-muted-foreground`}>
+              <Icon className={`h-3.5 w-3.5 ${color}`} />
+              {label}
+            </div>
+            <div className="mt-1 text-2xl font-bold">{value}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Toolbar */}
+      <div className="surface rounded-xl p-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="relative">
+              <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                placeholder="Search products…"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="pl-8 w-52 h-8 text-sm"
+              />
+            </div>
+            <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as typeof statusFilter)}>
+              <SelectTrigger className="h-8 w-36 text-sm"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All statuses</SelectItem>
+                <SelectItem value="active">Active only</SelectItem>
+                <SelectItem value="inactive">Hidden only</SelectItem>
+                <SelectItem value="sold">Sold out</SelectItem>
+              </SelectContent>
+            </Select>
+            <Button variant="outline" size="sm" onClick={refresh}>Refresh</Button>
+          </div>
+          <Button size="sm" onClick={() => setCreating(true)} className="gap-1.5">
+            <PlusCircle className="h-4 w-4" /> Add Product
+          </Button>
+        </div>
+      </div>
+
+      {/* Product List */}
+      <div className="surface rounded-xl overflow-hidden">
+        <div className="px-5 py-3 border-b border-border/40 flex items-center justify-between">
+          <h2 className="font-semibold text-sm">Products ({products.length})</h2>
+        </div>
+        {products.length === 0 ? (
+          <div className="flex flex-col items-center gap-3 p-12 text-center text-muted-foreground">
+            <Package className="h-10 w-10 opacity-30" />
+            <div className="text-sm">
+              {search ? "No products match your search." : 'No products yet. Click "Add Product" to get started.'}
+            </div>
+          </div>
+        ) : (
+          <div className="divide-y divide-border/40">
+            {products.map((p) => {
+              const hasImage = p.image_url && p.image_url.startsWith("http");
+              return (
+                <div key={p.id} className="flex items-center gap-4 px-5 py-4">
+                  {/* Thumbnail */}
+                  <div className="h-14 w-14 shrink-0 overflow-hidden rounded-lg border border-border/40 bg-secondary/50 flex items-center justify-center">
+                    {hasImage ? (
+                      <img src={p.image_url!} alt={p.name} className="h-full w-full object-cover" />
+                    ) : (
+                      <Package className="h-6 w-6 text-muted-foreground/40" />
+                    )}
+                  </div>
+
+                  {/* Info */}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-medium text-sm truncate">{p.name}</span>
+                      <Badge variant="secondary" className="text-[10px] shrink-0">{p.category}</Badge>
+                      <Badge
+                        variant={p.status === "active" ? "default" : p.status === "sold" ? "destructive" : "secondary"}
+                        className="text-[10px] shrink-0"
+                      >
+                        {p.status}
+                      </Badge>
+                    </div>
+                    <p className="mt-0.5 line-clamp-1 text-xs text-muted-foreground">{p.description}</p>
+                    <div className="mt-1 flex items-center gap-3 text-xs text-muted-foreground">
+                      <span className="font-mono font-medium text-foreground">
+                        {p.amount != null ? `${Number(p.amount).toFixed(2)} ${p.currency ?? "USD"}` : "Free"}
+                      </span>
+                      <span>·</span>
+                      <span>{new Date(p.created_at).toLocaleDateString()}</span>
+                      {p.contact_telegram && <><span>·</span><span>@{p.contact_telegram}</span></>}
+                    </div>
+                  </div>
+
+                  {/* Actions */}
+                  <div className="flex items-center gap-1 shrink-0">
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-8 w-8 p-0"
+                      title={p.status === "active" ? "Hide product" : "Publish product"}
+                      onClick={() => toggleStatus(p)}
+                      disabled={p.status === "sold"}
+                    >
+                      {p.status === "active" ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-8 w-8 p-0"
+                      title="Edit product"
+                      onClick={() => setEditing(p)}
+                    >
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+                    {p.status !== "sold" && (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-8 w-8 p-0 text-amber-500 hover:text-amber-600"
+                        title="Mark as sold out"
+                        onClick={() => markSold(p)}
+                      >
+                        <XCircle className="h-4 w-4" />
+                      </Button>
+                    )}
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-8 w-8 p-0 text-destructive hover:text-destructive"
+                      title="Delete product"
+                      onClick={() => handleDelete(p)}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      {/* Create Dialog */}
+      <ProductFormDialog
+        open={creating}
+        onClose={() => setCreating(false)}
+        initial={BLANK_FORM}
+        onSave={handleCreate}
+        title="Add New Product"
+      />
+
+      {/* Edit Dialog */}
+      <ProductFormDialog
+        open={!!editing}
+        onClose={() => setEditing(null)}
+        initial={editForm}
+        onSave={handleUpdate}
+        title="Edit Product"
+      />
     </div>
   );
 }
