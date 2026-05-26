@@ -132,6 +132,9 @@ function EscrowGroupPage() {
     ? `https://t.me/share/url?url=${encodeURIComponent("/start " + g.telegram_link_token)}`
     : null;
 
+  const inviteUrl = typeof window !== "undefined" ? `${window.location.origin}/escrow/${g.id}` : `/escrow/${g.id}`;
+  const showInvitePanel = isBuyer && sellerPending;
+
   return (
     <div className="space-y-6">
       <section className="surface rounded-3xl p-6">
@@ -151,6 +154,26 @@ function EscrowGroupPage() {
             <Link to="/escrow"><Button variant="ghost" size="sm">My escrow</Button></Link>
           </div>
         </div>
+
+        {showInvitePanel && (
+          <div className="mt-5 rounded-2xl border border-primary/30 bg-primary/5 p-4">
+            <div className="text-xs font-semibold uppercase tracking-wide text-primary">Invite the counterparty</div>
+            <p className="mt-1 text-sm text-muted-foreground">Share this link with the seller. They'll be added to the group as soon as they sign in and accept.</p>
+            <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+              <Input readOnly value={inviteUrl} className="font-mono text-xs" onFocus={(e) => e.currentTarget.select()} />
+              <Button
+                size="sm"
+                onClick={() => { navigator.clipboard.writeText(inviteUrl); toast.success("Invite link copied"); }}
+              >Copy link</Button>
+              <a
+                href={`https://t.me/share/url?url=${encodeURIComponent(inviteUrl)}&text=${encodeURIComponent("Join my escrow group on EscrowDesk")}`}
+                target="_blank" rel="noreferrer"
+              >
+                <Button size="sm" variant="outline" className="w-full sm:w-auto">Share via Telegram</Button>
+              </a>
+            </div>
+          </div>
+        )}
       </section>
       <div className="grid gap-6 lg:grid-cols-[2fr_1fr]">
         <div className="space-y-4">

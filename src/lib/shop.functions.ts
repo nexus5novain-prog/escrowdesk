@@ -229,7 +229,7 @@ export const adminUpdateShopProduct = createServerFn({ method: "POST" })
     if (rest.contact_telegram !== undefined) update.contact_telegram = rest.contact_telegram || null;
     if (image_url !== undefined) update.contact_website = image_url || null;
     if (rest.status !== undefined) update.status = rest.status;
-    const { error } = await supabaseAdmin.from("listings").update(update).eq("id", id);
+    const { error } = await supabaseAdmin.from("listings").update(update as never).eq("id", id);
     if (error) throw new Error(error.message);
     return { ok: true };
   });

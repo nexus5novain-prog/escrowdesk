@@ -24,7 +24,7 @@ export const listMyPurchases = createServerFn({ method: "GET" })
     const listingIds = groups.map((g) => g.listing_id!);
     const { data: listings } = await supabaseAdmin
       .from("listings")
-      .select("id, name, description, category, amount, currency, contact_telegram, image_url, user_id")
+      .select("id, name, description, category, amount, currency, contact_telegram, contact_website, user_id")
       .in("id", listingIds);
     const listingMap = new Map((listings ?? []).map((l) => [l.id, l]));
     return {

@@ -1,9 +1,11 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { AuthGate } from "@/components/AuthGate";
 import { useServerFn } from "@tanstack/react-start";
+import { useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { z } from "zod";
 import { createEscrowGroup } from "@/lib/escrow-groups.functions";
+import { getMe } from "@/lib/escrow.functions";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,7 +13,7 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Users2, Send, Bitcoin, DollarSign } from "lucide-react";
+import { Users2, Send, Bitcoin, DollarSign, User as UserIcon, AtSign, ShieldCheck, AlertTriangle } from "lucide-react";
 
 const ASSETS = ["BTC", "USDT", "USDC", "ETH"] as const;
 type Asset = typeof ASSETS[number];
@@ -32,6 +34,10 @@ function NewEscrow() {
   const nav = useNavigate();
   const { listing } = Route.useSearch();
   const create = useServerFn(createEscrowGroup);
+  const fetchMe = useServerFn(getMe);
+  const { data: me } = useQuery({ queryKey: ["me-for-escrow"], queryFn: () => fetchMe() });
+  const myName = me?.profile?.display_name ?? "";
+  const myTg = me?.profile?.telegram_username ?? "";
   const [mode, setMode] = useState<"site" | "telegram">("site");
   const [asset, setAsset] = useState<Asset>("BTC");
   const [amount, setAmount] = useState("");
@@ -97,6 +103,34 @@ function NewEscrow() {
             ? <>Trading on listing <b>{listingMeta.name}</b>{listingMeta.seller ? <> with seller <b>{listingMeta.seller}</b></> : null}. Confirm amount and create the group.</>
             : <>Invite a seller to trade with. The group holds chat, escrow address, deposit hash, and a button to bring in a moderator if needed.</>}
         </p>
+      </div>
+
+      {/* Creator identity — pre-filled, read-only */}
+      <div className="surface p-4 border-primary/30 bg-primary/5">
+        <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-primary">
+          <ShieldCheck className="h-3.5 w-3.5" /> You are creating this group as
+        </div>
+        <div className="mt-2 grid gap-2 sm:grid-cols-2">
+          <div className="flex items-center gap-2 rounded-md border border-border/60 bg-background/60 px-3 py-2 text-sm">
+            <UserIcon className="h-3.5 w-3.5 text-muted-foreground" />
+            <span className="text-muted-foreground">Site:</span>
+            <span className="font-medium">{myName || "—"}</span>
+          </div>
+          <div className="flex items-center gap-2 rounded-md border border-border/60 bg-background/60 px-3 py-2 text-sm">
+            <AtSign className="h-3.5 w-3.5 text-muted-foreground" />
+            <span className="text-muted-foreground">Telegram:</span>
+            {myTg ? (
+              <span className="font-medium">@{myTg.replace(/^@/, "")}</span>
+            ) : (
+              <span className="flex items-center gap-1 text-amber-500"><AlertTriangle className="h-3 w-3" /> not linked</span>
+            )}
+          </div>
+        </div>
+        {!myTg && (
+          <p className="mt-2 text-[11px] text-muted-foreground">
+            Tip: link your Telegram in <a href="/settings" className="text-primary underline">Settings</a> so the bot can mirror this group to your chat.
+          </p>
+        )}
       </div>
 
       <div className="surface p-6 space-y-5">
