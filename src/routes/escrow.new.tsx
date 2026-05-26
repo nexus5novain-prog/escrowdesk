@@ -34,6 +34,10 @@ function NewEscrow() {
   const nav = useNavigate();
   const { listing } = Route.useSearch();
   const create = useServerFn(createEscrowGroup);
+  const fetchMe = useServerFn(getMe);
+  const { data: me } = useQuery({ queryKey: ["me-for-escrow"], queryFn: () => fetchMe() });
+  const myName = me?.profile?.display_name ?? "";
+  const myTg = me?.profile?.telegram_username ?? "";
   const [mode, setMode] = useState<"site" | "telegram">("site");
   const [asset, setAsset] = useState<Asset>("BTC");
   const [amount, setAmount] = useState("");
