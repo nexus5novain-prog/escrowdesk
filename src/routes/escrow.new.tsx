@@ -1,9 +1,11 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { AuthGate } from "@/components/AuthGate";
 import { useServerFn } from "@tanstack/react-start";
+import { useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { z } from "zod";
 import { createEscrowGroup } from "@/lib/escrow-groups.functions";
+import { getMe } from "@/lib/escrow.functions";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,7 +13,7 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Users2, Send, Bitcoin, DollarSign } from "lucide-react";
+import { Users2, Send, Bitcoin, DollarSign, User as UserIcon, AtSign, ShieldCheck, AlertTriangle } from "lucide-react";
 
 const ASSETS = ["BTC", "USDT", "USDC", "ETH"] as const;
 type Asset = typeof ASSETS[number];
