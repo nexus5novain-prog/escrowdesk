@@ -748,8 +748,28 @@ function ProductFormDialog({
 }) {
   const [form, setForm] = useState<ProductForm>(initial);
   const [saving, setSaving] = useState(false);
+  const [bin, setBin] = useState<BinRecord | null>(null);
+  const [binLoading, setBinLoading] = useState(false);
+  const fetchBin = useServerFn(lookupBin);
 
-  useEffect(() => { if (open) setForm(initial); }, [open, initial]);
+  useEffect(() => { if (open) { setForm(initial); setBin(null); } }, [open, initial]);
+
+  // Debounced BIN lookup whenever card_number changes
+  useEffect(() => {
+    if (form.section !== "CARD") { setBin(null); return; }
+    const digits = form.card_number.replace(/\D/g, "");
+    if (digits.length < 6) { setBin(null); return; }
+    let cancelled = false;
+    setBinLoading(true);
+    const t = setTimeout(async () => {
+      try {
+        const res = await fetchBin({ data: { cardNumber: digits } });
+        if (!cancelled) setBin(res.bin);
+      } catch { /* ignore */ }
+      finally { if (!cancelled) setBinLoading(false); }
+    }, 350);
+    return () => { cancelled = true; clearTimeout(t); setBinLoading(false); };
+  }, [form.card_number, form.section, fetchBin]);
 
   const set = (k: keyof ProductForm) =>
     (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
