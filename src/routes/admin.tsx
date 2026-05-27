@@ -864,6 +864,36 @@ function ProductFormDialog({
                     className="font-mono tracking-widest"
                     maxLength={19}
                   />
+                  {form.card_number.replace(/\D/g, "").length >= 6 && (
+                    <div className="rounded-lg border border-border/50 bg-background/60 px-3 py-2 text-[11px]">
+                      {binLoading ? (
+                        <span className="flex items-center gap-1 text-muted-foreground"><Loader2 className="h-3 w-3 animate-spin" /> Looking up BIN…</span>
+                      ) : bin ? (
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            <Badge variant="outline" className="font-mono text-[10px]">{bin.bin}</Badge>
+                            <span className="font-semibold text-foreground">{bin.bank}</span>
+                            <span className="text-muted-foreground">· {bin.brand}{bin.card_level ? ` ${bin.card_level}` : ""}{bin.card_type ? ` · ${bin.card_type}` : ""}</span>
+                            {bin.country && <span className="text-muted-foreground">· {bin.country}{bin.country_code ? ` (${bin.country_code})` : ""}</span>}
+                          </div>
+                          <button
+                            type="button"
+                            className="rounded-md border border-primary/40 px-2 py-0.5 text-[10px] font-medium text-primary hover:bg-primary/10"
+                            onClick={() => {
+                              const summary = `${bin.bank} · ${bin.brand}${bin.card_level ? ` ${bin.card_level}` : ""}${bin.card_type ? ` (${bin.card_type})` : ""}${bin.country ? ` · ${bin.country}` : ""}`;
+                              setForm((f) => ({
+                                ...f,
+                                card_notes: f.card_notes ? `${summary}\n${f.card_notes}` : summary,
+                              }));
+                              toast.success("BIN info applied to notes");
+                            }}
+                          >Apply to notes</button>
+                        </div>
+                      ) : (
+                        <span className="text-muted-foreground">No BIN match — add it under Admin → BINs.</span>
+                      )}
+                    </div>
+                  )}
                 </div>
 
                 <div className="grid grid-cols-2 gap-3">
