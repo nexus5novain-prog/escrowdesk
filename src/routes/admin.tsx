@@ -16,6 +16,7 @@ import {
   adminDeleteShopProduct, adminGetShopStats, type ShopProduct, type ShopSection,
 } from "@/lib/shop.functions";
 import { adminSeedMarketplace, adminSeedUsers } from "@/lib/seed.functions";
+import { lookupBin, type BinRecord } from "@/lib/bins.functions";
 import { adminActivatePremium, adminGrantTrusted } from "@/lib/trades.functions";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
@@ -747,8 +748,28 @@ function ProductFormDialog({
 }) {
   const [form, setForm] = useState<ProductForm>(initial);
   const [saving, setSaving] = useState(false);
+  const [bin, setBin] = useState<BinRecord | null>(null);
+  const [binLoading, setBinLoading] = useState(false);
+  const fetchBin = useServerFn(lookupBin);
 
-  useEffect(() => { if (open) setForm(initial); }, [open, initial]);
+  useEffect(() => { if (open) { setForm(initial); setBin(null); } }, [open, initial]);
+
+  // Debounced BIN lookup whenever card_number changes
+  useEffect(() => {
+    if (form.section !== "CARD") { setBin(null); return; }
+    const digits = form.card_number.replace(/\D/g, "");
+    if (digits.length < 6) { setBin(null); return; }
+    let cancelled = false;
+    setBinLoading(true);
+    const t = setTimeout(async () => {
+      try {
+        const res = await fetchBin({ data: { cardNumber: digits } });
+        if (!cancelled) setBin(res.bin);
+      } catch { /* ignore */ }
+      finally { if (!cancelled) setBinLoading(false); }
+    }, 350);
+    return () => { cancelled = true; clearTimeout(t); setBinLoading(false); };
+  }, [form.card_number, form.section, fetchBin]);
 
   const set = (k: keyof ProductForm) =>
     (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
@@ -843,6 +864,36 @@ function ProductFormDialog({
                     className="font-mono tracking-widest"
                     maxLength={19}
                   />
+                  {form.card_number.replace(/\D/g, "").length >= 6 && (
+                    <div className="rounded-lg border border-border/50 bg-background/60 px-3 py-2 text-[11px]">
+                      {binLoading ? (
+                        <span className="flex items-center gap-1 text-muted-foreground"><Loader2 className="h-3 w-3 animate-spin" /> Looking up BIN…</span>
+                      ) : bin ? (
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            <Badge variant="outline" className="font-mono text-[10px]">{bin.bin}</Badge>
+                            <span className="font-semibold text-foreground">{bin.bank}</span>
+                            <span className="text-muted-foreground">· {bin.brand}{bin.card_level ? ` ${bin.card_level}` : ""}{bin.card_type ? ` · ${bin.card_type}` : ""}</span>
+                            {bin.country && <span className="text-muted-foreground">· {bin.country}{bin.country_code ? ` (${bin.country_code})` : ""}</span>}
+                          </div>
+                          <button
+                            type="button"
+                            className="rounded-md border border-primary/40 px-2 py-0.5 text-[10px] font-medium text-primary hover:bg-primary/10"
+                            onClick={() => {
+                              const summary = `${bin.bank} · ${bin.brand}${bin.card_level ? ` ${bin.card_level}` : ""}${bin.card_type ? ` (${bin.card_type})` : ""}${bin.country ? ` · ${bin.country}` : ""}`;
+                              setForm((f) => ({
+                                ...f,
+                                card_notes: f.card_notes ? `${summary}\n${f.card_notes}` : summary,
+                              }));
+                              toast.success("BIN info applied to notes");
+                            }}
+                          >Apply to notes</button>
+                        </div>
+                      ) : (
+                        <span className="text-muted-foreground">No BIN match — add it under Admin → BINs.</span>
+                      )}
+                    </div>
+                  )}
                 </div>
 
                 <div className="grid grid-cols-2 gap-3">
