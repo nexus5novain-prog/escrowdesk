@@ -16,6 +16,7 @@ import {
   adminDeleteShopProduct, adminGetShopStats, type ShopProduct, type ShopSection,
 } from "@/lib/shop.functions";
 import { adminSeedMarketplace, adminSeedUsers } from "@/lib/seed.functions";
+import { lookupBin, type BinRecord } from "@/lib/bins.functions";
 import { adminActivatePremium, adminGrantTrusted } from "@/lib/trades.functions";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
