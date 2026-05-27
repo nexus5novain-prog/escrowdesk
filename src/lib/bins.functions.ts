@@ -79,9 +79,9 @@ export const adminUpsertBin = createServerFn({ method: "POST" })
     const payload = { ...data, created_by: context.userId };
     if (data.id) {
       const { id, ...rest } = payload;
-      const { error } = await supabaseAdmin.from("bins").update(rest as never).eq("id", id);
+      const { error } = await supabaseAdmin.from("bins").update(rest as never).eq("id", id as string);
       if (error) throw new Error(error.message);
-      return { id };
+      return { id: id as string };
     }
     const { data: row, error } = await supabaseAdmin
       .from("bins").insert(payload as never).select("id").single();
