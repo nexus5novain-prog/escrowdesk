@@ -72,7 +72,7 @@ function RootComponent() {
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
         <SiteHeader />
-        <main className="mx-auto max-w-7xl px-4 py-8">
+        <main className="mx-auto max-w-7xl px-3 py-4 sm:px-4 sm:py-6 md:py-8">
           <Outlet />
         </main>
         <Toaster theme="dark" />

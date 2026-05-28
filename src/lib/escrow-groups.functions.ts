@@ -219,10 +219,32 @@ export const getEscrowGroup = createServerFn({ method: "GET" })
     if (error) throw new Error(error.message);
     if (!g) throw new Error("Group not found");
 
-    const { data: mems } = await supabaseAdmin
+    let { data: mems } = await supabaseAdmin
       .from("escrow_group_members").select("user_id, role, joined_at, accepted_at, declined_at").eq("group_id", data.id);
-    const isMember = (mems ?? []).some((m) => m.user_id === context.userId);
-    if (!isMember) throw new Error("Forbidden");
+    let isMember = (mems ?? []).some((m) => m.user_id === context.userId);
+
+    // Auto-claim invite: if not yet a member but user matches invited_username / invited_telegram, add them as the seller.
+    if (!isMember && (g.invited_username || g.invited_telegram) && !g.counterparty_id) {
+      const { data: me } = await supabaseAdmin
+        .from("profiles").select("display_name, telegram_username")
+        .eq("user_id", context.userId).maybeSingle();
+      const matchesName = g.invited_username && me?.display_name &&
+        me.display_name.toLowerCase() === String(g.invited_username).replace(/^@/, "").toLowerCase();
+      const matchesTg = g.invited_telegram && me?.telegram_username &&
+        me.telegram_username.toLowerCase() === String(g.invited_telegram).replace(/^@/, "").toLowerCase();
+      if (matchesName || matchesTg) {
+        await supabaseAdmin.from("escrow_group_members").insert({
+          group_id: data.id, user_id: context.userId, role: "seller", accepted_at: null,
+        } as never);
+        await supabaseAdmin.from("escrow_groups").update({ counterparty_id: context.userId } as never).eq("id", data.id);
+        const re = await supabaseAdmin
+          .from("escrow_group_members").select("user_id, role, joined_at, accepted_at, declined_at").eq("group_id", data.id);
+        mems = re.data;
+        isMember = true;
+        await systemMsg(data.id, `🔗 Invited counterparty joined via invite link.`);
+      }
+    }
+    if (!isMember) throw new Error("Forbidden — you are not a member of this escrow group");
 
     const profileMap = await loadProfiles((mems ?? []).map((m) => m.user_id));
     const { data: msgs } = await supabaseAdmin
