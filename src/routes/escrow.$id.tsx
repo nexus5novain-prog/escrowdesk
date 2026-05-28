@@ -238,42 +238,51 @@ function EscrowGroupPage() {
 
         {depositPanelVisible && (
           <div className="surface p-5 space-y-4">
-            <div className="grid gap-4 xl:grid-cols-3">
-              <div className="rounded-3xl border border-border/60 p-5">
+            <div className="grid gap-4 lg:grid-cols-3">
+              {/* SELLER — left */}
+              <div className="rounded-3xl border border-border/60 p-5 order-1">
                 <div className="flex items-center gap-3">
                   <Avatar>
-                    {buyerProfile?.display_name ? (
-                      <AvatarFallback>{buyerProfile.display_name.slice(0, 2).toUpperCase()}</AvatarFallback>
-                    ) : (
-                      <AvatarFallback>BY</AvatarFallback>
-                    )}
+                    <AvatarFallback>{(sellerProfile?.display_name ?? "SL").slice(0, 2).toUpperCase()}</AvatarFallback>
                   </Avatar>
                   <div>
-                    <div className="text-sm font-semibold">{buyerProfile?.display_name ?? "Buyer"}</div>
-                    <div className="text-[11px] uppercase tracking-wide text-muted-foreground">Buyer profile</div>
+                    <div className="text-sm font-semibold">{sellerProfile?.display_name ?? "Seller"}</div>
+                    <div className="text-[11px] uppercase tracking-wide text-muted-foreground">Seller · receives payout</div>
                   </div>
                 </div>
-                <div className="mt-4 rounded-2xl bg-secondary/50 p-4">
-                  <div className="text-[10px] uppercase text-muted-foreground">Deposit address</div>
-                  <div className="mt-2 font-mono text-sm break-words">{buyerProfile?.wallet_address_btc ? blurAddress(buyerProfile.wallet_address_btc) : <span className="text-muted-foreground">Buyer has not added a BTC address.</span>}</div>
+                <div className="mt-4 space-y-3 text-sm">
+                  <div className="rounded-2xl bg-secondary/50 p-4">
+                    <div className="text-[10px] uppercase text-muted-foreground">Payout address ({g.asset})</div>
+                    <div className="mt-2 font-mono text-xs break-all">
+                      {sellerWallet ? blurAddress(sellerWallet) : <span className="text-muted-foreground">Seller has not added a {g.asset} address.</span>}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-[10px] uppercase text-muted-foreground">Will receive</div>
+                    <div className="font-mono">{g.amount} {g.asset}{g.fiat_amount ? ` · ≈ ${g.fiat_amount} ${g.fiat_currency}` : ""}</div>
+                  </div>
                 </div>
               </div>
 
-              <div className="rounded-3xl border border-border/60 p-5 bg-primary/5">
-                <div className="flex flex-col items-center justify-center gap-3 text-center">
-                  <div className="text-6xl animate-[bounce_1.2s_infinite]">🤖</div>
-                  <div className="text-sm font-semibold">Escrow bot</div>
-                  <div className="text-[11px] text-muted-foreground">Live monitoring of BTC deposit and chain balance.</div>
+              {/* MEDIATOR / COMPANY — center */}
+              <div className="rounded-3xl border border-primary/40 p-5 bg-primary/5 order-2">
+                <div className="flex flex-col items-center justify-center gap-2 text-center">
+                  <div className="text-5xl animate-[bounce_1.2s_infinite]">🤖</div>
+                  <div className="text-sm font-semibold">EscrowDesk · Mediator</div>
+                  <div className="text-[11px] text-muted-foreground">Holds funds until both parties confirm.</div>
                 </div>
-                <div className="mt-4 space-y-4">
-                  <div className="rounded-2xl bg-background p-4">
-                    <div className="text-[10px] uppercase text-muted-foreground">Real deposited balance</div>
-                    <div className="mt-2 text-2xl font-semibold">{g.status === "funded" ? `${g.amount} BTC` : "Awaiting deposit"}</div>
-                    <div className="text-[11px] text-muted-foreground">{g.status === "funded" ? "Updated from the BTC transaction hash." : "Buyer must fund the escrow address below."}</div>
+                <div className="mt-4 space-y-3">
+                  <div className="rounded-2xl bg-background p-4 text-center">
+                    <div className="text-[10px] uppercase text-muted-foreground">Escrow balance</div>
+                    <div className="mt-1 text-2xl font-semibold font-mono">{heldAmount} {g.asset}</div>
+                    <div className="text-sm text-muted-foreground font-mono">≈ {heldFiat.toLocaleString()} {g.fiat_currency}</div>
+                    <div className="mt-2 text-[11px] text-muted-foreground">
+                      {funded ? "Funds confirmed in escrow." : "0 balance — awaiting buyer deposit & tx submission."}
+                    </div>
                   </div>
                   <div className="rounded-2xl bg-background p-4">
-                    <div className="text-[10px] uppercase text-muted-foreground">Escrow address</div>
-                    <div className="mt-2 font-mono text-sm break-all">{g.escrow_address ?? "Waiting for seller BTC payout address."}</div>
+                    <div className="text-[10px] uppercase text-muted-foreground">Escrow address ({g.escrow_address_chain ?? g.asset})</div>
+                    <div className="mt-2 font-mono text-xs break-all">{g.escrow_address ?? "Waiting for seller payout address."}</div>
                   </div>
                   <div className="rounded-2xl bg-background p-4">
                     <div className="flex items-center justify-between">
@@ -281,45 +290,47 @@ function EscrowGroupPage() {
                       {g.deposit_tx_hash ? <Badge variant="outline" className="text-[10px]">submitted</Badge> : null}
                     </div>
                     {g.deposit_tx_hash ? (
-                      <div className="mt-2 font-mono text-sm break-all">{g.deposit_tx_hash}</div>
-                    ) : (
+                      <div className="mt-2 font-mono text-xs break-all">{g.deposit_tx_hash}</div>
+                    ) : isBuyer ? (
                       <div className="mt-2 flex flex-col gap-2">
-                        <Input value={hash} onChange={(e) => setHash(e.target.value)} placeholder="Paste BTC tx hash" className="font-mono" />
-                        <Button onClick={() => act(() => submitHash({ data: { group_id: g.id, hash } }), "Hash submitted")} disabled={!hash.trim()}>Submit</Button>
+                        <Input value={hash} onChange={(e) => setHash(e.target.value)} placeholder={`Paste ${g.asset} tx hash`} className="font-mono" />
+                        <Button onClick={() => act(() => submitHash({ data: { group_id: g.id, hash } }), "Hash submitted")} disabled={!hash.trim()}>Submit payment</Button>
                       </div>
+                    ) : (
+                      <div className="mt-2 text-xs text-muted-foreground">Waiting for buyer to submit tx hash.</div>
                     )}
                   </div>
                 </div>
               </div>
 
-              <div className="rounded-3xl border border-border/60 p-5">
+              {/* BUYER — right */}
+              <div className="rounded-3xl border border-border/60 p-5 order-3">
                 <div className="flex items-center gap-3">
                   <Avatar>
-                    {sellerProfile?.display_name ? (
-                      <AvatarFallback>{sellerProfile.display_name.slice(0, 2).toUpperCase()}</AvatarFallback>
-                    ) : (
-                      <AvatarFallback>SL</AvatarFallback>
-                    )}
+                    <AvatarFallback>{(buyerProfile?.display_name ?? "BY").slice(0, 2).toUpperCase()}</AvatarFallback>
                   </Avatar>
                   <div>
-                    <div className="text-sm font-semibold">{sellerProfile?.display_name ?? "Seller"}</div>
-                    <div className="text-[11px] uppercase tracking-wide text-muted-foreground">Seller details</div>
+                    <div className="text-sm font-semibold">{buyerProfile?.display_name ?? "Buyer"}</div>
+                    <div className="text-[11px] uppercase tracking-wide text-muted-foreground">Buyer · sends payment</div>
                   </div>
                 </div>
                 <div className="mt-4 space-y-3 text-sm">
-                  <div>
-                    <div className="text-[10px] uppercase text-muted-foreground">Trading amount</div>
-                    <div>{g.amount} BTC{g.fiat_amount ? ` · ≈ ${g.fiat_amount} ${g.fiat_currency}` : ""}</div>
+                  <div className="rounded-2xl bg-secondary/50 p-4">
+                    <div className="text-[10px] uppercase text-muted-foreground">Refund address ({g.asset})</div>
+                    <div className="mt-2 font-mono text-xs break-all">
+                      {buyerWallet ? blurAddress(buyerWallet) : <span className="text-muted-foreground">Buyer has not added a {g.asset} address.</span>}
+                    </div>
                   </div>
                   <div>
-                    <div className="text-[10px] uppercase text-muted-foreground">Release address</div>
-                    <div className="mt-2 font-mono text-sm break-all">{g.escrow_address ?? "No BTC payout address configured."}</div>
+                    <div className="text-[10px] uppercase text-muted-foreground">Will send</div>
+                    <div className="font-mono">{g.amount} {g.asset}{g.fiat_amount ? ` · ≈ ${g.fiat_amount} ${g.fiat_currency}` : ""}</div>
                   </div>
                 </div>
               </div>
             </div>
           </div>
         )}
+
 
         {/* Pending invite — for the invited counterparty (seller or moderator) */}
 
