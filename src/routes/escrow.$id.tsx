@@ -116,13 +116,26 @@ function EscrowGroupPage() {
   const sellerPending = !!sellerMember && !sellerMember.accepted_at && !sellerMember.declined_at;
   const iAmPendingInvitee = !!myMember && !myMember.accepted_at && !myMember.declined_at && myMember.role !== "buyer";
 
-  const buyerProfile = data.members.find((m) => m.role === "buyer")?.profile;
-  const sellerProfile = data.members.find((m) => m.role === "seller")?.profile;
+  const buyerProfile = data.members.find((m) => m.role === "buyer")?.profile as
+    Record<string, string | null> | undefined;
+  const sellerProfile = data.members.find((m) => m.role === "seller")?.profile as
+    Record<string, string | null> | undefined;
   const depositPanelVisible = g.status === "active" || g.status === "funded";
   const blurAddress = (addr: string | null | undefined) => {
     if (!addr) return "";
     return addr.length <= 16 ? addr : `${addr.slice(0, 8)}…${addr.slice(-8)}`;
   };
+  const walletFieldByAsset: Record<string, string> = {
+    BTC: "wallet_address_btc", USDT: "wallet_address_usdt",
+    USDC: "wallet_address_usdc", ETH: "wallet_address_eth",
+  };
+  const walletField = walletFieldByAsset[g.asset] ?? "wallet_address_btc";
+  const buyerWallet = buyerProfile?.[walletField] ?? null;
+  const sellerWallet = sellerProfile?.[walletField] ?? null;
+  const funded = g.status === "funded" || g.status === "released";
+  const heldAmount = funded ? g.amount : 0;
+  const heldFiat = funded ? (g.fiat_amount ?? 0) : 0;
+
 
   const act = async (fn: () => Promise<unknown>, ok: string) => {
     try { await fn(); toast.success(ok); refetch(); } catch (e) { toast.error((e as Error).message); }
