@@ -94,8 +94,13 @@ function NewEscrow() {
     }
   };
 
+  const previewFiat = fiat ? Number(fiat) : null;
+  const previewAmt = amount ? Number(amount) : (previewFiat ? previewFiat / 105000 : 0);
+  const sellerLabel = listingMeta?.seller || (mode === "site" ? (username || "(invite pending)") : (tg ? `@${tg.replace(/^@/, "")}` : "(invite pending)"));
+
   return (
-    <div className="mx-auto max-w-2xl space-y-6">
+    <div className="mx-auto max-w-6xl grid gap-6 lg:grid-cols-[1.2fr_1fr]">
+      <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-semibold">Create an escrow group</h1>
         <p className="mt-1 text-sm text-muted-foreground">
@@ -223,6 +228,50 @@ function NewEscrow() {
           {busy ? "Creating…" : listing ? "Create escrow group" : "Create group & invite seller"}
         </Button>
       </div>
+      </div>
+
+      {/* Live group preview */}
+      <aside className="lg:sticky lg:top-20 h-fit space-y-3">
+        <div className="surface p-5">
+          <div className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">Group preview</div>
+          <h2 className="mt-1 text-lg font-semibold">Trade room · {previewAmt || 0} {listing ? "USDT" : asset}</h2>
+          <p className="mt-1 text-xs text-muted-foreground">This is how the group will look once you click create. The seller appears on the left, the EscrowDesk mediator in the center, you (buyer) on the right.</p>
+
+          <div className="mt-4 grid grid-cols-3 gap-2">
+            <div className="rounded-xl border border-border/60 p-3 text-center">
+              <div className="mx-auto grid h-9 w-9 place-items-center rounded-full bg-secondary/60 text-xs font-semibold">SL</div>
+              <div className="mt-2 text-[11px] font-semibold leading-tight truncate">{sellerLabel}</div>
+              <div className="text-[10px] uppercase text-muted-foreground">Seller</div>
+            </div>
+            <div className="rounded-xl border border-primary/40 bg-primary/5 p-3 text-center">
+              <div className="text-2xl">🤖</div>
+              <div className="mt-1 text-[11px] font-semibold leading-tight">EscrowDesk</div>
+              <div className="text-[10px] uppercase text-primary">Mediator</div>
+            </div>
+            <div className="rounded-xl border border-border/60 p-3 text-center">
+              <div className="mx-auto grid h-9 w-9 place-items-center rounded-full bg-secondary/60 text-xs font-semibold">
+                {(myName || "ME").slice(0, 2).toUpperCase()}
+              </div>
+              <div className="mt-2 text-[11px] font-semibold leading-tight truncate">{myName || "You"}</div>
+              <div className="text-[10px] uppercase text-muted-foreground">Buyer</div>
+            </div>
+          </div>
+
+          <div className="mt-4 rounded-xl bg-background p-4 text-center">
+            <div className="text-[10px] uppercase text-muted-foreground">Escrow balance</div>
+            <div className="mt-1 text-2xl font-semibold font-mono">{previewAmt || 0} {listing ? "USDT" : asset}</div>
+            <div className="text-sm text-muted-foreground font-mono">≈ {(previewFiat ?? 0).toLocaleString()} USD</div>
+            <div className="mt-2 text-[11px] text-muted-foreground">0 balance until the buyer deposits and submits the tx.</div>
+          </div>
+
+          <ul className="mt-4 space-y-1.5 text-[11px] text-muted-foreground">
+            <li>✓ Real-time chat between buyer, seller, and moderator</li>
+            <li>✓ Buyer submits on-chain tx hash; seller verifies</li>
+            <li>✓ Invite link &amp; Telegram mirroring after creation</li>
+            <li>✓ One-click moderator escalation</li>
+          </ul>
+        </div>
+      </aside>
     </div>
   );
 }
