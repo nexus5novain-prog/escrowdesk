@@ -138,17 +138,17 @@ function ListingTable({ title, tone, rows, loading, emptyText }: {
 }) {
   const accent = tone === "primary" ? "text-primary" : "text-foreground";
   return (
-    <div className="rounded-lg border border-border/60 bg-secondary/10">
-      <div className="flex items-center justify-between border-b border-border/60 px-3 py-2">
-        <h3 className={`text-sm font-semibold uppercase tracking-wider ${accent}`}>{title}</h3>
-        <span className="text-[10px] font-mono text-muted-foreground">{rows.length} listing{rows.length === 1 ? "" : "s"}</span>
+    <div className="rounded-xl border border-border/60 bg-secondary/10">
+      <div className="flex items-center justify-between border-b border-border/60 px-4 py-3">
+        <h3 className={`text-base font-semibold uppercase tracking-wider ${accent}`}>{title}</h3>
+        <span className="text-xs font-mono text-muted-foreground">{rows.length} listing{rows.length === 1 ? "" : "s"}</span>
       </div>
-      <div className="max-h-[420px] divide-y divide-border/40 overflow-y-auto">
+      <div className="max-h-[640px] divide-y divide-border/40 overflow-y-auto">
         <AnimatePresence initial={false}>
           {rows.map((r) => <ListingCard key={r.id} row={r} />)}
         </AnimatePresence>
         {!loading && rows.length === 0 && (
-          <p className="p-6 text-center text-xs text-muted-foreground">{emptyText}</p>
+          <p className="p-8 text-center text-sm text-muted-foreground">{emptyText}</p>
         )}
       </div>
     </div>
@@ -202,38 +202,38 @@ function ListingCard({ row }: { row: ListingRow }) {
       layout
       initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
       whileHover={{ backgroundColor: "color-mix(in oklab, var(--secondary) 30%, transparent)" }}
-      className="p-3"
+      className="p-4"
     >
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <div className="flex items-center gap-2">
-            <span className="truncate font-medium">{row.name}</span>
-            {row.profile?.is_premium && <Crown className="h-3.5 w-3.5 text-primary" />}
-            {row.profile?.is_trusted && <ShieldCheck className="h-3.5 w-3.5 text-primary" />}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="truncate text-base font-semibold">{row.name}</span>
+            {row.profile?.is_premium && <Crown className="h-4 w-4 text-primary" />}
+            {row.profile?.is_trusted && <ShieldCheck className="h-4 w-4 text-primary" />}
           </div>
-          <p className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">{row.description}</p>
-          <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
-            <Badge variant="outline" className="text-[10px]">{row.category}</Badge>
+          <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">{row.description}</p>
+          <div className="mt-2 flex flex-wrap items-center gap-2">
+            <Badge variant="outline" className="text-xs">{row.category}</Badge>
             {row.amount != null && (
-              <span className="font-mono text-xs text-primary">{fmtFiat(Number(row.amount), row.currency || "USD")}</span>
+              <span className="font-mono text-sm font-semibold text-primary">{fmtFiat(Number(row.amount), row.currency || "USD")}</span>
             )}
-            <span className="text-[10px] text-muted-foreground">· {row.profile?.display_name ?? "—"}</span>
-            {rating && <span className="text-[10px] text-muted-foreground">· ★ {rating}</span>}
+            <span className="text-xs text-muted-foreground">· {row.profile?.display_name ?? "—"}</span>
+            {rating && <span className="text-xs text-muted-foreground">· ★ {rating}</span>}
           </div>
         </div>
-        <div className="flex flex-col items-end gap-1">
-          <Button size="sm" onClick={startTrade} disabled={busy} className="h-7 gap-1 px-2 text-[11px]">
-            {busy ? <Loader2 className="h-3 w-3 animate-spin" /> : <Handshake className="h-3 w-3" />}
+        <div className="flex flex-row flex-wrap items-end gap-2 sm:flex-col sm:items-end">
+          <Button size="sm" onClick={startTrade} disabled={busy} className="gap-1">
+            {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Handshake className="h-3.5 w-3.5" />}
             {row.kind === "selling" ? "Trade" : "Offer"}
           </Button>
           {tgLink && (
             <a href={tgLink} target="_blank" rel="noreferrer">
-              <Button size="sm" variant="secondary" className="h-7 gap-1 px-2 text-[11px]"><Send className="h-3 w-3" /> Telegram</Button>
+              <Button size="sm" variant="secondary" className="gap-1"><Send className="h-3.5 w-3.5" /> Telegram</Button>
             </a>
           )}
           {web && (
             <a href={web} target="_blank" rel="noreferrer">
-              <Button size="sm" variant="outline" className="h-7 gap-1 px-2 text-[11px]"><Globe className="h-3 w-3" /> Website</Button>
+              <Button size="sm" variant="outline" className="gap-1"><Globe className="h-3.5 w-3.5" /> Website</Button>
             </a>
           )}
         </div>

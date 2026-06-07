@@ -78,9 +78,10 @@ function EscrowGroupPage() {
   const decline = useServerFn(declineEscrowInvite);
   const verify = useServerFn(verifyGroupDeposit);
 
-  const { data, refetch } = useQuery({
+  const { data, refetch, isLoading, error } = useQuery({
     queryKey: ["escrow-group", id],
     queryFn: () => fetchGroup({ data: { id } }),
+    retry: false,
   });
 
   const [msg, setMsg] = useState("");
@@ -97,7 +98,38 @@ function EscrowGroupPage() {
 
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: "smooth" }); }, [data?.messages.length]);
 
-  if (!data) return <div className="text-sm text-muted-foreground">Loading…</div>;
+  if (isLoading) {
+    return (
+      <div className="mx-auto max-w-2xl surface p-10 text-center text-sm text-muted-foreground">
+        Loading escrow group…
+      </div>
+    );
+  }
+  if (error) {
+    const msg = (error as Error).message || "Failed to load this escrow group.";
+    const forbidden = /Forbidden|not a member/i.test(msg);
+    const notFound = /not found/i.test(msg);
+    return (
+      <div className="mx-auto max-w-xl surface p-8 text-center space-y-4">
+        <ShieldAlert className="mx-auto h-10 w-10 text-amber-500" />
+        <h1 className="text-xl font-semibold">
+          {notFound ? "Escrow group not found" : forbidden ? "You don't have access to this escrow" : "Could not open this escrow group"}
+        </h1>
+        <p className="text-sm text-muted-foreground">
+          {forbidden
+            ? "This invite link is bound to a specific username or Telegram handle. Sign in with the account that was invited, or ask the buyer to invite your current account."
+            : notFound
+              ? "The group ID in this URL doesn't exist. It may have been cancelled or the link is wrong."
+              : msg}
+        </p>
+        <div className="flex flex-wrap justify-center gap-2">
+          <Link to="/escrow"><Button variant="outline">Back to my escrow</Button></Link>
+          <Link to="/escrow/new"><Button>Create new escrow</Button></Link>
+        </div>
+      </div>
+    );
+  }
+  if (!data) return null;
   const g = data.group as {
     id: string; creator_id: string; counterparty_id: string | null; asset: string; amount: number;
     fiat_amount: number | null; fiat_currency: string; status: string;
