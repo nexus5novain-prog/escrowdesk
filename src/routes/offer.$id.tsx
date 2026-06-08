@@ -4,7 +4,8 @@ import { useServerFn } from "@tanstack/react-start";
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { getMe, startTrade } from "@/lib/escrow.functions";
+import { getMe } from "@/lib/escrow.functions";
+import { createEscrowGroup } from "@/lib/escrow-groups.functions";
 import { fmtFiat, fmtCrypto } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,8 +17,8 @@ function OfferDetail() {
   const { id } = Route.useParams();
   const nav = useNavigate();
   const fetchMe = useServerFn(getMe);
-  const _start = useServerFn(startTrade);
-  const { data: me } = useQuery({ queryKey: ["me"], queryFn: () => fetchMe() });
+  const createGroup = useServerFn(createEscrowGroup);
+  useQuery({ queryKey: ["me"], queryFn: () => fetchMe() });
   const { data: offer } = useQuery({
     queryKey: ["offer", id],
     queryFn: async () => {
@@ -26,15 +27,22 @@ function OfferDetail() {
     },
   });
   const [amt, setAmt] = useState("");
-  const [pm, setPm] = useState<string>("");
 
   if (!offer) return <div className="text-sm text-muted-foreground">Loading…</div>;
 
   const submit = async () => {
     try {
-      const res = await _start({ data: { offer_id: id, fiat_amount: Number(amt), payment_method_id: pm || null } });
-      toast.success("Trade started");
-      nav({ to: "/escrow/trade/$id", params: { id: res.id } });
+      const fiat = Number(amt);
+      if (!fiat || fiat <= 0) throw new Error("Enter a valid amount");
+      const crypto = Number((fiat / Number(offer.price)).toFixed(8));
+      const res = await createGroup({ data: {
+        asset: offer.asset as "BTC",
+        amount: crypto,
+        fiat_amount: fiat,
+        fiat_currency: offer.fiat_currency,
+      } });
+      toast.success("Escrow group created");
+      nav({ to: "/escrow/$id", params: { id: res.id } });
     } catch (e) { toast.error((e as Error).message); }
   };
 
@@ -51,16 +59,7 @@ function OfferDetail() {
             <label className="text-xs uppercase text-muted-foreground">Amount ({offer.fiat_currency})</label>
             <Input value={amt} onChange={(e) => setAmt(e.target.value)} className="font-mono" />
           </div>
-          {offer.side === "buy" && (
-            <div>
-              <label className="text-xs uppercase text-muted-foreground">Your payment method (where to receive)</label>
-              <select value={pm} onChange={(e) => setPm(e.target.value)} className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm">
-                <option value="">Select…</option>
-                {(me?.payment_methods ?? []).map((p) => <option key={p.id} value={p.id}>{p.label}</option>)}
-              </select>
-            </div>
-          )}
-          <Button onClick={submit} className="w-full">Start trade</Button>
+          <Button onClick={submit} className="w-full">Start escrow</Button>
         </div>
       </div>
     </div>

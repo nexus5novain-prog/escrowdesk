@@ -4,9 +4,9 @@ import { useServerFn } from "@tanstack/react-start";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import {
-  adminListDisputes, adminResolveDispute, adminSetFee, adminMakeMeAdmin, getMe,
+  adminSetFee, adminMakeMeAdmin, getMe,
   adminListOffers, adminUpdateOfferStatus,
-  adminListTrades, adminForceCancelTrade, adminForceReleaseTrade,
+  adminListEscrowGroups, adminCancelEscrowGroup, adminReleaseEscrowGroup,
   tgGetStatus, tgSetWebhook, tgDeleteWebhook, tgSendTest,
   adminListUsers, adminBanUser, adminUnbanUser, adminWarnUser,
   adminAssignRole, adminRevokeRole, adminUnlinkTelegram, adminListWarnings,
@@ -67,9 +67,8 @@ function Admin() {
       <Tabs defaultValue="shop">
         <TabsList className="flex-wrap">
           <TabsTrigger value="shop" className="gap-1.5"><ShoppingBag className="h-3.5 w-3.5" />Shop</TabsTrigger>
-          <TabsTrigger value="disputes">Disputes</TabsTrigger>
+          <TabsTrigger value="escrows">Escrow Groups</TabsTrigger>
           <TabsTrigger value="offers">Offers</TabsTrigger>
-          <TabsTrigger value="trades">Trades</TabsTrigger>
           <TabsTrigger value="users">Users</TabsTrigger>
           <TabsTrigger value="warnings">Warnings</TabsTrigger>
           <TabsTrigger value="telegram">Telegram</TabsTrigger>
@@ -77,9 +76,8 @@ function Admin() {
           <TabsTrigger value="seed" className="gap-1.5 text-emerald-400"><Database className="h-3.5 w-3.5" />Seed Data</TabsTrigger>
         </TabsList>
         <TabsContent value="shop" className="mt-4"><ShopPanel /></TabsContent>
-        <TabsContent value="disputes" className="mt-4"><DisputesPanel /></TabsContent>
+        <TabsContent value="escrows" className="mt-4"><EscrowGroupsPanel /></TabsContent>
         <TabsContent value="offers" className="mt-4"><OffersPanel /></TabsContent>
-        <TabsContent value="trades" className="mt-4"><TradesPanel /></TabsContent>
         <TabsContent value="users" className="mt-4"><UsersPanel /></TabsContent>
         <TabsContent value="warnings" className="mt-4"><WarningsPanel /></TabsContent>
         <TabsContent value="telegram" className="mt-4"><TelegramPanel /></TabsContent>
@@ -278,44 +276,61 @@ function SeedPanel() {
   );
 }
 
-function DisputesPanel() {
-  const listD = useServerFn(adminListDisputes);
-  const resolve = useServerFn(adminResolveDispute);
-  const { data: raw, refetch } = useQuery({ queryKey: ["disputes"], queryFn: () => listD() });
-  const data = raw as { disputes: Array<{ id: string; trade_id: string; reason: string; status: string; created_at: string }> } | undefined;
-  const [filter, setFilter] = useState<string>("open");
-  const rows = (data?.disputes ?? []).filter((d) => filter === "all" || d.status === filter);
+function EscrowGroupsPanel() {
+  const listG = useServerFn(adminListEscrowGroups);
+  const cancelG = useServerFn(adminCancelEscrowGroup);
+  const releaseG = useServerFn(adminReleaseEscrowGroup);
+  const [status, setStatus] = useState<string>("all");
+  const { data, refetch } = useQuery({
+    queryKey: ["admin-escrow-groups", status],
+    queryFn: () => listG({ data: status === "all" ? {} : { status: status as "awaiting_counterparty"|"active"|"funded"|"released"|"cancelled"|"disputed" } }),
+  });
+  const groups = (data as { groups: Array<{ id: string; status: string; asset: string; amount: number; fiat_amount: number | null; fiat_currency: string | null; created_at: string; buyer_name: string | null; seller_name: string | null; deposit_tx_hash: string | null }> } | undefined)?.groups ?? [];
   return (
     <div className="surface p-5">
       <div className="flex items-center justify-between">
-        <h2 className="font-semibold">Disputes</h2>
-        <Select value={filter} onValueChange={setFilter}>
-          <SelectTrigger className="w-40"><SelectValue /></SelectTrigger>
+        <h2 className="font-semibold">Escrow groups</h2>
+        <Select value={status} onValueChange={setStatus}>
+          <SelectTrigger className="w-48"><SelectValue /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All</SelectItem>
-            <SelectItem value="open">Open</SelectItem>
-            <SelectItem value="resolved_buyer">Resolved → buyer</SelectItem>
-            <SelectItem value="resolved_seller">Resolved → seller</SelectItem>
+            <SelectItem value="awaiting_counterparty">Awaiting counterparty</SelectItem>
+            <SelectItem value="active">Active</SelectItem>
+            <SelectItem value="funded">Funded</SelectItem>
+            <SelectItem value="disputed">Disputed</SelectItem>
+            <SelectItem value="released">Released</SelectItem>
+            <SelectItem value="cancelled">Cancelled</SelectItem>
           </SelectContent>
         </Select>
       </div>
-      <div className="mt-3 space-y-2">
-        {rows.map((d) => (
-          <div key={d.id} className="rounded-md border border-border/60 p-3">
-            <div className="flex items-center justify-between text-xs text-muted-foreground">
-              <span>Trade <Link to="/escrow/trade/$id" params={{ id: d.trade_id }} className="font-mono underline">{d.trade_id.slice(0,8)}</Link> · {new Date(d.created_at).toLocaleString()}</span>
-              <Badge variant={d.status === "open" ? "destructive" : "secondary"}>{d.status}</Badge>
-            </div>
-            <p className="mt-1 text-sm">{d.reason}</p>
-            {d.status === "open" && (
-              <div className="mt-2 flex gap-2">
-                <Button size="sm" onClick={async () => { try { await resolve({ data: { trade_id: d.trade_id, award_to: "buyer", note: "" } }); toast.success("Resolved → buyer"); refetch(); } catch (e) { toast.error((e as Error).message); } }}>Award buyer</Button>
-                <Button size="sm" variant="outline" onClick={async () => { try { await resolve({ data: { trade_id: d.trade_id, award_to: "seller", note: "" } }); toast.success("Resolved → seller"); refetch(); } catch (e) { toast.error((e as Error).message); } }}>Award seller</Button>
-              </div>
-            )}
-          </div>
-        ))}
-        {rows.length === 0 && <div className="text-sm text-muted-foreground">No disputes.</div>}
+      <div className="mt-3 overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead className="text-xs uppercase text-muted-foreground">
+            <tr><th className="text-left py-2">ID</th><th className="text-left">Buyer</th><th className="text-left">Seller</th><th className="text-left">Asset</th><th className="text-right">Amount</th><th className="text-right">Fiat</th><th className="text-left">Status</th><th></th></tr>
+          </thead>
+          <tbody>
+            {groups.map((g) => (
+              <tr key={g.id} className="border-t border-border/40">
+                <td className="py-2 font-mono"><Link to="/escrow/$id" params={{ id: g.id }} className="underline">{g.id.slice(0,8)}</Link></td>
+                <td>{g.buyer_name ?? "—"}</td>
+                <td>{g.seller_name ?? "—"}</td>
+                <td>{g.asset}</td>
+                <td className="text-right font-mono">{Number(g.amount).toFixed(4)}</td>
+                <td className="text-right font-mono">{g.fiat_amount != null ? `${Number(g.fiat_amount).toFixed(2)} ${g.fiat_currency ?? ""}` : "—"}</td>
+                <td><Badge variant={g.status === "disputed" ? "destructive" : g.status === "released" ? "default" : "secondary"}>{g.status}</Badge></td>
+                <td className="text-right space-x-1">
+                  {!["released","cancelled"].includes(g.status) && (
+                    <>
+                      <Button size="sm" variant="outline" onClick={async () => { try { await releaseG({ data: { group_id: g.id } }); toast.success("Released"); refetch(); } catch (e) { toast.error((e as Error).message); } }}>Release</Button>
+                      <Button size="sm" variant="ghost" onClick={async () => { try { await cancelG({ data: { group_id: g.id } }); toast.success("Cancelled"); refetch(); } catch (e) { toast.error((e as Error).message); } }}>Cancel</Button>
+                    </>
+                  )}
+                </td>
+              </tr>
+            ))}
+            {groups.length === 0 && <tr><td colSpan={8} className="py-6 text-center text-muted-foreground">No escrow groups.</td></tr>}
+          </tbody>
+        </table>
       </div>
     </div>
   );
