@@ -40,10 +40,9 @@ export function SiteHeader() {
       <Link to="/shop" className={linkCls} activeProps={activeCls} onClick={() => setOpen(false)}>Marketplace</Link>
       {user && (
         <>
-          <Link to="/trades" className={`${linkCls} flex items-center gap-1`} activeProps={{ className: `${activeCls.className} flex items-center gap-1` }} onClick={() => setOpen(false)}>
-            <ShoppingBag className="h-3.5 w-3.5" /> Trades
+          <Link to="/escrow" className={`${linkCls} flex items-center gap-1`} activeProps={{ className: `${activeCls.className} flex items-center gap-1` }} onClick={() => setOpen(false)}>
+            <ShoppingBag className="h-3.5 w-3.5" /> Escrow
           </Link>
-          <Link to="/escrow" className={linkCls} activeProps={activeCls} onClick={() => setOpen(false)}>Escrow</Link>
           <Link to="/wallet" className={linkCls} activeProps={activeCls} onClick={() => setOpen(false)}>Wallet</Link>
           <Link to="/settings" className={linkCls} activeProps={activeCls} onClick={() => setOpen(false)}>Settings</Link>
           {isStaff && (

@@ -88,138 +88,6 @@ export const pauseOffer = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
-// ---------- Trade lifecycle ----------
-export const startTrade = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
-  .inputValidator(z.object({
-    offer_id: z.string().uuid(),
-    fiat_amount: z.number().positive(),
-    payment_method_id: z.string().uuid().nullable().optional(),
-  }))
-  .handler(async ({ data, context }) => {
-    const { data: tradeId, error } = await supabaseAdmin.rpc("start_trade", {
-      _offer_id: data.offer_id,
-      _buyer: context.userId,
-      _fiat_amount: data.fiat_amount,
-      _payment_method_id: (data.payment_method_id ?? null) as string,
-    });
-    if (error) throw new Error(error.message);
-    const tid = tradeId as unknown as string;
-    const { data: t } = await supabaseAdmin.from("trades").select("buyer_id, seller_id").eq("id", tid).single();
-    if (t) {
-      await notifyUser(t.seller_id, `🔔 New trade <code>${tid.slice(0,8)}</code> opened. Awaiting buyer payment.`);
-      await notifyUser(t.buyer_id, `✅ Trade <code>${tid.slice(0,8)}</code> created. Send fiat then mark as paid.`);
-    }
-    return { id: tid };
-  });
-
-export const markPaid = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
-  .inputValidator(z.object({ trade_id: z.string().uuid() }))
-  .handler(async ({ data, context }) => {
-    const { error } = await supabaseAdmin.rpc("mark_trade_paid", { _trade_id: data.trade_id, _caller: context.userId });
-    if (error) throw new Error(error.message);
-    const { data: t } = await supabaseAdmin.from("trades").select("seller_id").eq("id", data.trade_id).single();
-    if (t) await notifyUser(t.seller_id, `💸 Buyer marked trade <code>${data.trade_id.slice(0,8)}</code> as paid. Verify and release.`);
-    return { ok: true };
-  });
-
-export const releaseTrade = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
-  .inputValidator(z.object({ trade_id: z.string().uuid() }))
-  .handler(async ({ data, context }) => {
-    const { error } = await supabaseAdmin.rpc("release_trade", { _trade_id: data.trade_id, _caller: context.userId });
-    if (error) throw new Error(error.message);
-    const { data: t } = await supabaseAdmin.from("trades").select("seller_id, asset, crypto_amount, fee_amount").eq("id", data.trade_id).single();
-    if (t) {
-      const net = Number(t.crypto_amount) - Number(t.fee_amount);
-      await notifyUser(t.seller_id, `🎉 Buyer released escrow! You received ${net.toFixed(4)} ${t.asset}.`);
-    }
-    return { ok: true };
-  });
-
-// Sign the trade terms (buyer or seller). Phrase must be exact.
-export const signTerms = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
-  .inputValidator(z.object({
-    trade_id: z.string().uuid(),
-    signature: z.string().min(10).max(200),
-    terms: z.string().max(2000).optional(),
-  }))
-  .handler(async ({ data, context }) => {
-    const { error } = await supabaseAdmin.rpc("sign_terms", {
-      _trade_id: data.trade_id,
-      _caller: context.userId,
-      _signature: data.signature,
-      _terms: (data.terms ?? null) as string,
-    });
-    if (error) throw new Error(error.message);
-    const { data: t } = await supabaseAdmin.from("trades").select("buyer_id, seller_id, status").eq("id", data.trade_id).single();
-    if (t) {
-      const other = t.buyer_id === context.userId ? t.seller_id : t.buyer_id;
-      await notifyUser(other, `✍️ Counterparty signed terms on trade <code>${data.trade_id.slice(0,8)}</code>. Status: ${t.status}.`);
-    }
-    return { ok: true };
-  });
-
-// Seller confirms they see the buyer's crypto in escrow.
-export const confirmBuyerDeposit = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
-  .inputValidator(z.object({ trade_id: z.string().uuid() }))
-  .handler(async ({ data, context }) => {
-    const { error } = await supabaseAdmin.rpc("confirm_buyer_deposit", { _trade_id: data.trade_id, _caller: context.userId });
-    if (error) throw new Error(error.message);
-    const { data: t } = await supabaseAdmin.from("trades").select("buyer_id").eq("id", data.trade_id).single();
-    if (t) await notifyUser(t.buyer_id, `✅ Seller confirmed your deposit on trade <code>${data.trade_id.slice(0,8)}</code>. Settle fiat off-platform, then release.`);
-    return { ok: true };
-  });
-
-export const cancelTrade = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
-  .inputValidator(z.object({ trade_id: z.string().uuid() }))
-  .handler(async ({ data, context }) => {
-    const { error } = await supabaseAdmin.rpc("cancel_trade", { _trade_id: data.trade_id, _caller: context.userId });
-    if (error) throw new Error(error.message);
-    return { ok: true };
-  });
-
-export const openDispute = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
-  .inputValidator(z.object({ trade_id: z.string().uuid(), reason: z.string().min(5).max(500) }))
-  .handler(async ({ data, context }) => {
-    const { error } = await supabaseAdmin.rpc("open_dispute", { _trade_id: data.trade_id, _caller: context.userId, _reason: data.reason });
-    if (error) throw new Error(error.message);
-    return { ok: true };
-  });
-
-export const sendMessage = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
-  .inputValidator(z.object({ trade_id: z.string().uuid(), body: z.string().min(1).max(2000) }))
-  .handler(async ({ data, context }) => {
-    const { error } = await supabaseAdmin.from("trade_messages").insert({
-      trade_id: data.trade_id, sender_id: context.userId, body: data.body,
-    });
-    if (error) throw new Error(error.message);
-    const { data: t } = await supabaseAdmin.from("trades").select("buyer_id, seller_id").eq("id", data.trade_id).single();
-    if (t) {
-      const other = t.buyer_id === context.userId ? t.seller_id : t.buyer_id;
-      await notifyUser(other, `💬 New message on trade <code>${data.trade_id.slice(0,8)}</code>:\n${data.body.slice(0,300)}`);
-    }
-    return { ok: true };
-  });
-
-// ---------- Wallet (simulated deposit/withdraw) ----------
-export const depositSimulated = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
-  .inputValidator(z.object({ asset: z.enum(["BTC"]), amount: z.number().positive().max(1_000_000) }))
-  .handler(async ({ data, context }) => {
-    const { error } = await supabaseAdmin.rpc("credit_wallet", {
-      _user: context.userId, _asset: data.asset, _amount: data.amount, _note: "Test deposit",
-    });
-    if (error) throw new Error(error.message);
-    return { ok: true };
-  });
-
 // ---------- Payment methods ----------
 export const upsertPaymentMethod = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -297,29 +165,6 @@ export const adminMakeMeAdmin = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
-export const adminListDisputes = createServerFn({ method: "GET" })
-  .middleware([requireSupabaseAuth])
-  .handler(async ({ context }) => {
-    await assertAdmin(context.userId);
-    const { data, error } = await supabaseAdmin
-      .from("disputes")
-      .select("id, trade_id, opened_by, reason, status, created_at, trades(asset, crypto_amount, fiat_amount, fiat_currency, buyer_id, seller_id)" as never)
-      .order("created_at", { ascending: false }).limit(100);
-    if (error) throw new Error(error.message);
-    return { disputes: data ?? [] };
-  });
-
-export const adminResolveDispute = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
-  .inputValidator(z.object({ trade_id: z.string().uuid(), award_to: z.enum(["buyer","seller"]), note: z.string().max(1000).default("") }))
-  .handler(async ({ data, context }) => {
-    await assertAdmin(context.userId);
-    const { error } = await supabaseAdmin.rpc("resolve_dispute", {
-      _trade_id: data.trade_id, _caller: context.userId, _award_to: data.award_to, _note: data.note,
-    });
-    if (error) throw new Error(error.message);
-    return { ok: true };
-  });
 
 export const adminSetFee = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -512,37 +357,6 @@ export const updateMyProfile = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
-export const getMyTrades = createServerFn({ method: "GET" })
-  .middleware([requireSupabaseAuth])
-  .handler(async ({ context }) => {
-    const { data, error } = await supabaseAdmin
-      .from("trades")
-      .select("id, status, asset, crypto_amount, fiat_amount, fiat_currency, price, created_at, buyer_id, seller_id")
-      .or(`buyer_id.eq.${context.userId},seller_id.eq.${context.userId}`)
-      .order("created_at", { ascending: false }).limit(100);
-    if (error) throw new Error(error.message);
-    return { trades: data ?? [] };
-  });
-
-export const getTrade = createServerFn({ method: "GET" })
-  .middleware([requireSupabaseAuth])
-  .inputValidator(z.object({ id: z.string().uuid() }))
-  .handler(async ({ data, context }) => {
-    const { data: t, error } = await supabaseAdmin
-      .from("trades").select("*").eq("id", data.id).single();
-    if (error) throw new Error(error.message);
-    if (t.buyer_id !== context.userId && t.seller_id !== context.userId) {
-      const { data: roles } = await supabaseAdmin.from("user_roles").select("role").eq("user_id", context.userId);
-      if (!roles?.some((r) => r.role === "admin" || r.role === "moderator")) throw new Error("Forbidden");
-    }
-    const [{ data: msgs }, { data: buyer }, { data: seller }, { data: pm }] = await Promise.all([
-      supabaseAdmin.from("trade_messages").select("*").eq("trade_id", data.id).order("created_at"),
-      supabaseAdmin.from("profiles").select("display_name, trades_completed").eq("user_id", t.buyer_id).maybeSingle(),
-      supabaseAdmin.from("profiles").select("display_name, trades_completed").eq("user_id", t.seller_id).maybeSingle(),
-      t.payment_method_id ? supabaseAdmin.from("payment_methods").select("*").eq("id", t.payment_method_id).maybeSingle() : Promise.resolve({ data: null }),
-    ]);
-    return { trade: t, messages: msgs ?? [], buyer, seller, payment_method: pm };
-  });
 
 // ---------- Admin: lightweight role check (no throw) ----------
 export const getMyRoles = createServerFn({ method: "GET" })
@@ -582,50 +396,61 @@ export const adminUpdateOfferStatus = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
-export const adminListTrades = createServerFn({ method: "GET" })
+// ---------- Admin: Escrow groups (moderation) ----------
+export const adminListEscrowGroups = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .inputValidator(z.object({
-    status: z.enum(["awaiting_agreement","awaiting_seller_confirm","pending_payment","paid","released","cancelled","disputed"]).optional(),
+    status: z.enum(["awaiting_counterparty","active","funded","released","cancelled","disputed"]).optional(),
   }).optional().transform((v) => v ?? {}))
   .handler(async ({ data, context }) => {
     await assertAdmin(context.userId);
-    let q = supabaseAdmin.from("trades")
-      .select("id, status, asset, crypto_amount, fiat_amount, fiat_currency, price, created_at, buyer_id, seller_id")
+    let q = supabaseAdmin.from("escrow_groups")
+      .select("id, status, asset, amount, fiat_amount, fiat_currency, creator_id, counterparty_id, created_at, deposit_tx_hash")
       .order("created_at", { ascending: false }).limit(200);
     if (data.status) q = q.eq("status", data.status);
     const { data: rows, error } = await q;
     if (error) throw new Error(error.message);
-    const ids = Array.from(new Set((rows ?? []).flatMap((r) => [r.buyer_id, r.seller_id])));
+    const ids = Array.from(new Set((rows ?? []).flatMap((r) => [r.creator_id, r.counterparty_id]).filter((x): x is string => !!x)));
     const profs = ids.length
       ? (await supabaseAdmin.from("profiles").select("user_id, display_name").in("user_id", ids)).data ?? []
       : [];
     const nm = new Map(profs.map((p) => [p.user_id, p.display_name]));
-    return { trades: (rows ?? []).map((r) => ({
-      ...r, buyer_name: nm.get(r.buyer_id) ?? null, seller_name: nm.get(r.seller_id) ?? null,
+    return { groups: (rows ?? []).map((r) => ({
+      ...r,
+      buyer_name: nm.get(r.creator_id) ?? null,
+      seller_name: r.counterparty_id ? nm.get(r.counterparty_id) ?? null : null,
     })) };
   });
 
-export const adminForceCancelTrade = createServerFn({ method: "POST" })
+export const adminCancelEscrowGroup = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator(z.object({ trade_id: z.string().uuid() }))
+  .inputValidator(z.object({ group_id: z.string().uuid() }))
   .handler(async ({ data, context }) => {
-    const { isAdmin } = await assertAdmin(context.userId);
-    if (!isAdmin) throw new Error("Admin only");
-    const { error } = await supabaseAdmin.rpc("cancel_trade", { _trade_id: data.trade_id, _caller: context.userId });
+    await assertAdmin(context.userId);
+    const { error } = await supabaseAdmin.from("escrow_groups")
+      .update({ status: "cancelled" } as never).eq("id", data.group_id);
     if (error) throw new Error(error.message);
+    await supabaseAdmin.from("escrow_group_messages").insert({
+      group_id: data.group_id, body: "🛡️ Admin cancelled the escrow group.", is_system: true,
+    } as never);
     return { ok: true };
   });
 
-export const adminForceReleaseTrade = createServerFn({ method: "POST" })
+export const adminReleaseEscrowGroup = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator(z.object({ trade_id: z.string().uuid() }))
+  .inputValidator(z.object({ group_id: z.string().uuid() }))
   .handler(async ({ data, context }) => {
-    const { isAdmin } = await assertAdmin(context.userId);
-    if (!isAdmin) throw new Error("Admin only");
-    const { error } = await supabaseAdmin.rpc("release_trade", { _trade_id: data.trade_id, _caller: context.userId });
+    await assertAdmin(context.userId);
+    const { error } = await supabaseAdmin.from("escrow_groups")
+      .update({ status: "released", released_at: new Date().toISOString() } as never).eq("id", data.group_id);
     if (error) throw new Error(error.message);
+    await supabaseAdmin.from("escrow_group_messages").insert({
+      group_id: data.group_id, body: "🛡️ Admin force-released the escrow group.", is_system: true,
+    } as never);
     return { ok: true };
   });
+
+
 
 // ---------- Admin: Telegram wizard ----------
 export const tgGetStatus = createServerFn({ method: "GET" })
@@ -696,26 +521,30 @@ export const updateWalletAddresses = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
-// ---------- Wallet PnL ----------
+// ---------- Wallet PnL (escrow_groups based) ----------
 export const getWalletPnL = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     const u = context.userId;
-    const { data: trades } = await supabaseAdmin
-      .from("trades")
-      .select("asset, crypto_amount, fiat_amount, buyer_id, seller_id, status")
-      .eq("status", "released")
-      .or(`buyer_id.eq.${u},seller_id.eq.${u}`);
+    const { data: mems } = await supabaseAdmin.from("escrow_group_members").select("group_id").eq("user_id", u);
+    const ids = (mems ?? []).map((m) => m.group_id);
     const byAsset = new Map<string, { earned: number; spent: number }>();
     let totalEarnedUsd = 0, totalSpentUsd = 0;
-    for (const t of trades ?? []) {
-      const a = String(t.asset);
-      const row = byAsset.get(a) ?? { earned: 0, spent: 0 };
-      const crypto = Number(t.crypto_amount);
-      const fiat = Number(t.fiat_amount);
-      if (t.seller_id === u) { row.earned += crypto; totalEarnedUsd += fiat; }
-      if (t.buyer_id === u)  { row.spent  += crypto; totalSpentUsd  += fiat; }
-      byAsset.set(a, row);
+    if (ids.length) {
+      const { data: groups } = await supabaseAdmin
+        .from("escrow_groups")
+        .select("asset, amount, fiat_amount, creator_id, counterparty_id, status")
+        .in("id", ids).eq("status", "released");
+      for (const g of groups ?? []) {
+        const a = String(g.asset);
+        const row = byAsset.get(a) ?? { earned: 0, spent: 0 };
+        const crypto = Number(g.amount ?? 0);
+        const fiat = Number(g.fiat_amount ?? 0);
+        // creator is buyer (sends crypto); counterparty is seller (receives crypto)
+        if (g.counterparty_id === u) { row.earned += crypto; totalEarnedUsd += fiat; }
+        if (g.creator_id === u)      { row.spent  += crypto; totalSpentUsd  += fiat; }
+        byAsset.set(a, row);
+      }
     }
     return {
       per_asset: Array.from(byAsset, ([asset, v]) => ({ asset, ...v, net: v.earned - v.spent })),
@@ -725,81 +554,39 @@ export const getWalletPnL = createServerFn({ method: "GET" })
     };
   });
 
-// ---------- Trade ratings ----------
-export const submitRating = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
-  .inputValidator(
-    z.object({
-      trade_id: z.string().uuid(),
-      stars: z.number().int().min(1).max(5),
-      comment: z.string().trim().max(500).optional(),
-    }),
-  )
-  .handler(async ({ data, context }) => {
-    const { data: t, error: te } = await supabaseAdmin
-      .from("trades")
-      .select("id,status,buyer_id,seller_id")
-      .eq("id", data.trade_id)
-      .maybeSingle();
-    if (te) throw new Error(te.message);
-    if (!t) throw new Error("Trade not found");
-    if (t.status !== "released") throw new Error("Can only rate completed trades");
-    const ratee =
-      t.buyer_id === context.userId ? t.seller_id
-      : t.seller_id === context.userId ? t.buyer_id
-      : null;
-    if (!ratee) throw new Error("Not a participant");
-    const { error } = await supabaseAdmin.from("trade_ratings").insert({
-      trade_id: data.trade_id,
-      rater_id: context.userId,
-      ratee_id: ratee,
-      stars: data.stars,
-      comment: data.comment ?? null,
-    });
-    if (error) throw new Error(error.message);
-    return { ok: true };
-  });
 
-export const getTradeRatings = createServerFn({ method: "GET" })
-  .inputValidator(z.object({ trade_id: z.string().uuid() }))
-  .handler(async ({ data }) => {
-    const { data: rows, error } = await supabaseAdmin
-      .from("trade_ratings")
-      .select("id,rater_id,ratee_id,stars,comment,created_at")
-      .eq("trade_id", data.trade_id);
-    if (error) throw new Error(error.message);
-    return { ratings: rows ?? [] };
-  });
-
-// ---------- Badge progress (for current user) ----------
+// ---------- Badge progress (for current user) — escrow_groups based ----------
 export const getBadgeProgress = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     const u = context.userId;
-    const [{ data: prof }, { count: tradesCount }, ratings, partners, { data: roleRows }] = await Promise.all([
-      supabaseAdmin.from("profiles").select("is_trusted,is_premium,btc_volume_usd,five_star_count,distinct_partners").eq("user_id", u).maybeSingle(),
-      supabaseAdmin.from("trades").select("id", { count: "exact", head: true }).eq("status","released").or(`buyer_id.eq.${u},seller_id.eq.${u}`),
-      supabaseAdmin.from("trade_ratings").select("rater_id,stars").eq("ratee_id", u),
-      supabaseAdmin.from("trades").select("buyer_id,seller_id").eq("status","released").or(`buyer_id.eq.${u},seller_id.eq.${u}`),
-      supabaseAdmin.from("user_roles").select("role").eq("user_id", u),
-    ]);
-    const distinct4plus = new Set(
-      (ratings.data ?? []).filter((r) => r.stars >= 4).map((r) => r.rater_id),
-    ).size;
-    const partnerCounts = new Map<string, number>();
-    for (const t of partners.data ?? []) {
-      const p = t.buyer_id === u ? t.seller_id : t.buyer_id;
-      partnerCounts.set(p, (partnerCounts.get(p) ?? 0) + 1);
+    const { data: mems } = await supabaseAdmin.from("escrow_group_members").select("group_id").eq("user_id", u);
+    const ids = (mems ?? []).map((m) => m.group_id);
+    const { data: prof } = await supabaseAdmin
+      .from("profiles").select("is_trusted,is_premium,btc_volume_usd,five_star_count").eq("user_id", u).maybeSingle();
+    const { data: roleRows } = await supabaseAdmin.from("user_roles").select("role").eq("user_id", u);
+    let tradesCount = 0;
+    let maxRepeat = 0;
+    if (ids.length) {
+      const { data: groups } = await supabaseAdmin
+        .from("escrow_groups").select("creator_id, counterparty_id, status").in("id", ids).eq("status", "released");
+      tradesCount = (groups ?? []).length;
+      const partnerCounts = new Map<string, number>();
+      for (const g of groups ?? []) {
+        const p = g.creator_id === u ? g.counterparty_id : g.creator_id;
+        if (p) partnerCounts.set(p, (partnerCounts.get(p) ?? 0) + 1);
+      }
+      maxRepeat = Math.max(0, ...Array.from(partnerCounts.values()));
     }
-    const maxRepeat = Math.max(0, ...Array.from(partnerCounts.values()));
     const isAdmin = (roleRows ?? []).some((r) => r.role === "admin");
     return {
       is_trusted: isAdmin || !!prof?.is_trusted,
       is_premium: isAdmin || !!prof?.is_premium,
-      trades_completed: tradesCount ?? 0,
-      distinct_4plus_raters: distinct4plus,
+      trades_completed: tradesCount,
+      distinct_4plus_raters: 0,
       max_repeat_partner: maxRepeat,
       btc_volume_usd: Number(prof?.btc_volume_usd ?? 0),
       five_star_count: prof?.five_star_count ?? 0,
     };
   });
+
