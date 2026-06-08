@@ -395,66 +395,7 @@ function OffersPanel() {
   );
 }
 
-function TradesPanel() {
-  const listT = useServerFn(adminListTrades);
-  const cancel = useServerFn(adminForceCancelTrade);
-  const release = useServerFn(adminForceReleaseTrade);
-  const [status, setStatus] = useState<string>("all");
-  const { data, refetch } = useQuery({
-    queryKey: ["admin-trades", status],
-    queryFn: () => listT({ data: status === "all" ? {} : { status: status as "awaiting_agreement"|"awaiting_seller_confirm"|"pending_payment"|"paid"|"released"|"cancelled"|"disputed" } }),
-  });
-  const trades = (data as { trades: Array<{ id: string; status: string; asset: string; crypto_amount: number; fiat_amount: number; fiat_currency: string; created_at: string; buyer_name: string | null; seller_name: string | null }> } | undefined)?.trades ?? [];
-  return (
-    <div className="surface p-5">
-      <div className="flex items-center justify-between">
-        <h2 className="font-semibold">Escrow trades</h2>
-        <Select value={status} onValueChange={setStatus}>
-          <SelectTrigger className="w-44"><SelectValue /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All</SelectItem>
-            <SelectItem value="awaiting_agreement">Awaiting agreement</SelectItem>
-            <SelectItem value="awaiting_seller_confirm">Awaiting seller confirm</SelectItem>
-            <SelectItem value="pending_payment">Pending payment</SelectItem>
-            <SelectItem value="paid">Paid</SelectItem>
-            <SelectItem value="disputed">Disputed</SelectItem>
-            <SelectItem value="released">Released</SelectItem>
-            <SelectItem value="cancelled">Cancelled</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-      <div className="mt-3 overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead className="text-xs uppercase text-muted-foreground">
-            <tr><th className="text-left py-2">ID</th><th className="text-left">Buyer</th><th className="text-left">Seller</th><th className="text-left">Asset</th><th className="text-right">Crypto</th><th className="text-right">Fiat</th><th className="text-left">Status</th><th></th></tr>
-          </thead>
-          <tbody>
-            {trades.map((t) => (
-              <tr key={t.id} className="border-t border-border/40">
-                <td className="py-2 font-mono"><Link to="/escrow/trade/$id" params={{ id: t.id }} className="underline">{t.id.slice(0,8)}</Link></td>
-                <td>{t.buyer_name ?? "—"}</td>
-                <td>{t.seller_name ?? "—"}</td>
-                <td>{t.asset}</td>
-                <td className="text-right font-mono">{Number(t.crypto_amount).toFixed(4)}</td>
-                <td className="text-right font-mono">{Number(t.fiat_amount).toFixed(2)} {t.fiat_currency}</td>
-                <td><Badge variant={t.status === "disputed" ? "destructive" : t.status === "released" ? "default" : "secondary"}>{t.status}</Badge></td>
-                <td className="text-right space-x-1">
-                  {["awaiting_agreement","awaiting_seller_confirm","pending_payment","paid","disputed"].includes(t.status) && (
-                    <>
-                      <Button size="sm" variant="outline" onClick={async () => { try { await release({ data: { trade_id: t.id } }); toast.success("Released"); refetch(); } catch (e) { toast.error((e as Error).message); } }}>Release</Button>
-                      <Button size="sm" variant="ghost" onClick={async () => { try { await cancel({ data: { trade_id: t.id } }); toast.success("Cancelled"); refetch(); } catch (e) { toast.error((e as Error).message); } }}>Cancel</Button>
-                    </>
-                  )}
-                </td>
-              </tr>
-            ))}
-            {trades.length === 0 && <tr><td colSpan={8} className="py-6 text-center text-muted-foreground">No trades.</td></tr>}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  );
-}
+// Legacy TradesPanel removed — escrow group moderation lives in EscrowGroupsPanel above.
 
 function TelegramPanel() {
   const status = useServerFn(tgGetStatus);
