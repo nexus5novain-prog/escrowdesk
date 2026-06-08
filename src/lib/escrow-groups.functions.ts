@@ -4,14 +4,7 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { tgSendMessage } from "./telegram.server";
 
-type ProfileLite = {
-  user_id: string; display_name: string;
-  telegram_user_id: number | null; telegram_username: string | null;
-  wallet_address_btc: string | null;
-  wallet_address_usdt: string | null;
-  wallet_address_usdc: string | null; wallet_address_usdc_chain: string | null;
-  wallet_address_eth: string | null;
-};
+type ProfileLite = { user_id: string; display_name: string; telegram_user_id: number | null; telegram_username: string | null };
 
 const ASSETS = ["BTC", "USDT", "USDC", "ETH"] as const;
 type Asset = typeof ASSETS[number];
@@ -20,21 +13,9 @@ async function loadProfiles(userIds: string[]) {
   if (!userIds.length) return new Map<string, ProfileLite>();
   const { data } = await supabaseAdmin
     .from("profiles")
-    .select("user_id, display_name, telegram_user_id, telegram_username, wallet_address_btc, wallet_address_usdt, wallet_address_usdc, wallet_address_usdc_chain, wallet_address_eth")
+    .select("user_id, display_name, telegram_user_id, telegram_username")
     .in("user_id", userIds);
   return new Map((data ?? []).map((p) => [p.user_id, p as ProfileLite]));
-}
-
-
-type ListingLite = { id: string; name: string; description: string; category: string; contact_website: string | null; currency: string | null; amount: number | null };
-
-async function loadListings(listingIds: string[]) {
-  if (!listingIds.length) return new Map<string, ListingLite>();
-  const { data } = await supabaseAdmin
-    .from("listings")
-    .select("id, name, description, category, contact_website, currency, amount")
-    .in("id", listingIds);
-  return new Map((data ?? []).map((row) => [row.id, row as ListingLite]));
 }
 
 async function getSellerPayoutAddress(userId: string, asset: Asset): Promise<{ address: string | null; chain: string | null }> {
@@ -227,32 +208,10 @@ export const getEscrowGroup = createServerFn({ method: "GET" })
     if (error) throw new Error(error.message);
     if (!g) throw new Error("Group not found");
 
-    let { data: mems } = await supabaseAdmin
+    const { data: mems } = await supabaseAdmin
       .from("escrow_group_members").select("user_id, role, joined_at, accepted_at, declined_at").eq("group_id", data.id);
-    let isMember = (mems ?? []).some((m) => m.user_id === context.userId);
-
-    // Auto-claim invite: if not yet a member but user matches invited_username / invited_telegram, add them as the seller.
-    if (!isMember && (g.invited_username || g.invited_telegram) && !g.counterparty_id) {
-      const { data: me } = await supabaseAdmin
-        .from("profiles").select("display_name, telegram_username")
-        .eq("user_id", context.userId).maybeSingle();
-      const matchesName = g.invited_username && me?.display_name &&
-        me.display_name.toLowerCase() === String(g.invited_username).replace(/^@/, "").toLowerCase();
-      const matchesTg = g.invited_telegram && me?.telegram_username &&
-        me.telegram_username.toLowerCase() === String(g.invited_telegram).replace(/^@/, "").toLowerCase();
-      if (matchesName || matchesTg) {
-        await supabaseAdmin.from("escrow_group_members").insert({
-          group_id: data.id, user_id: context.userId, role: "seller", accepted_at: null,
-        } as never);
-        await supabaseAdmin.from("escrow_groups").update({ counterparty_id: context.userId } as never).eq("id", data.id);
-        const re = await supabaseAdmin
-          .from("escrow_group_members").select("user_id, role, joined_at, accepted_at, declined_at").eq("group_id", data.id);
-        mems = re.data;
-        isMember = true;
-        await systemMsg(data.id, `🔗 Invited counterparty joined via invite link.`);
-      }
-    }
-    if (!isMember) throw new Error("Forbidden — you are not a member of this escrow group");
+    const isMember = (mems ?? []).some((m) => m.user_id === context.userId);
+    if (!isMember) throw new Error("Forbidden");
 
     const profileMap = await loadProfiles((mems ?? []).map((m) => m.user_id));
     const { data: msgs } = await supabaseAdmin
@@ -377,8 +336,6 @@ export const listMyEscrowGroups = createServerFn({ method: "GET" })
     const roleMap = new Map((mems ?? []).map((m) => [m.group_id, m.role]));
     const counterIds = Array.from(new Set((groups ?? []).flatMap((g) => [g.creator_id, g.counterparty_id]).filter((x): x is string => !!x && x !== context.userId)));
     const profileMap = await loadProfiles(counterIds);
-    const listingIds = Array.from(new Set((groups ?? []).flatMap((g) => g.listing_id ? [g.listing_id] : [])));
-    const listingMap = await loadListings(listingIds);
     for (const g of groups ?? []) {
       const s = String(g.status);
       if (s === "released") stats.successful++;
@@ -396,7 +353,6 @@ export const listMyEscrowGroups = createServerFn({ method: "GET" })
           ...g,
           my_role: roleMap.get(g.id),
           counterparty: otherId ? profileMap.get(otherId) ?? null : null,
-          listing: g.listing_id ? listingMap.get(g.listing_id) ?? null : null,
         };
       }),
     };

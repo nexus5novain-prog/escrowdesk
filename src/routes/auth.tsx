@@ -16,15 +16,7 @@ function AuthPage() {
   const [email, setEmail] = useState(""); const [password, setPassword] = useState("");
   const [name, setName] = useState(""); const [loading, setLoading] = useState(false);
 
-  useEffect(() => {
-    if (!user) return;
-    let dest = "/";
-    try {
-      const saved = sessionStorage.getItem("post_auth_redirect");
-      if (saved) { dest = saved; sessionStorage.removeItem("post_auth_redirect"); }
-    } catch { /* ignore */ }
-    nav({ to: dest, replace: true });
-  }, [user, nav]);
+  useEffect(() => { if (user) nav({ to: "/" }); }, [user, nav]);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault(); setLoading(true);
@@ -40,7 +32,7 @@ function AuthPage() {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
         toast.success("Signed in.");
-        // Effect above will redirect to saved post_auth_redirect.
+        nav({ to: "/" });
       }
     } catch (err) {
       toast.error((err as Error).message);
