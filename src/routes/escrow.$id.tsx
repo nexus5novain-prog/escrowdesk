@@ -30,9 +30,8 @@ const TIMELINE: { key: string; label: string; icon: React.ComponentType<{ classN
   { key: "released", label: "Released", icon: CheckCircle2 },
 ];
 
-const { id } = Route.useParams();
 
-return <div>ID = {id}</div>;
+
 
 function StatusTimeline({ status }: { status: string }) {
   if (status === "cancelled") {

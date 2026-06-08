@@ -15,15 +15,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { toast } from "sonner";
 import { Users2, Send, Bitcoin, DollarSign, User as UserIcon, AtSign, ShieldCheck, AlertTriangle } from "lucide-react";
 
-import { createFileRoute } from "@tanstack/react-router";
-
-export const Route = createFileRoute("/escrow/new")({
-  component: EscrowNewPage,
-});
-
-function EscrowNewPage() {
-  return <div>New Escrow Page</div>;
-}
 
 const ASSETS = ["BTC", "USDT", "USDC", "ETH"] as const;
 type Asset = (typeof ASSETS)[number];
