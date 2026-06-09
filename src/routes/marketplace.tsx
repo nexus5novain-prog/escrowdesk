@@ -1,243 +1,200 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { useQuery } from "@tanstack/react-query";
-import { useMemo, useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
-import { listMarketplace, type ListingRow, type Tier } from "@/lib/marketplace.functions";
-import { createEscrowGroup } from "@/lib/escrow-groups.functions";
-import { MediatorBot } from "@/components/MediatorBot";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useEffect, useState } from "react";
+import { motion } from "framer-motion";
+import { listProducts, buyProduct } from "@/lib/products.functions";
+import { AdBanner } from "@/components/AdBanner";
 import { useAuth } from "@/hooks/use-auth";
+import { supabase } from "@/integrations/supabase/client";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { fmtFiat } from "@/lib/format";
 import { toast } from "sonner";
-import { Crown, ShieldCheck, Send, Globe, Plus, Search, Sparkles, ArrowLeftRight, Handshake, Loader2 } from "lucide-react";
+import { Search, ShoppingBag, ShieldCheck, Sparkles, Loader2, Star } from "lucide-react";
 
 export const Route = createFileRoute("/marketplace")({
   head: () => ({
     meta: [
-      { title: "Marketplace — EscrowDesk" },
-      { name: "description", content: "Browse active selling and seeking listings from premium, trusted, and regular members." },
+      { title: "Marketplace — EscrowDesk E-commerce" },
+      { name: "description", content: "Browse curated products from the EscrowDesk e-commerce marketplace. Buy securely with built-in escrow." },
     ],
   }),
   component: MarketplacePage,
 });
 
+type Product = {
+  id: string;
+  name: string;
+  description: string;
+  category: string;
+  price: number;
+  currency: string;
+  image_url: string | null;
+  stock: number;
+  status: string;
+  is_featured: boolean;
+  seller_wallet_asset: string | null;
+  created_at: string;
+};
+
 function MarketplacePage() {
   const { user } = useAuth();
   const nav = useNavigate();
-  const fetchMarket = useServerFn(listMarketplace);
+  const qc = useQueryClient();
+  const fetchFn = useServerFn(listProducts);
+  const buyFn = useServerFn(buyProduct);
   const [q, setQ] = useState("");
-  const { data, isLoading, refetch, isFetching } = useQuery({
-    queryKey: ["marketplace", q],
-    queryFn: () => fetchMarket({ data: { q: q || undefined } }),
-    refetchInterval: 20_000,
+  const [category, setCategory] = useState<string | null>(null);
+  const [busyId, setBusyId] = useState<string | null>(null);
+
+  const { data, isLoading } = useQuery({
+    queryKey: ["products", q, category],
+    queryFn: () => fetchFn({ data: { q: q || undefined, category: category || undefined } }),
+    refetchInterval: 30_000,
   });
 
-  const tiers: { key: Tier; label: string; icon: React.ReactNode; subtitle: string; emptyHint?: string }[] = [
-    { key: "premium", label: "Premium members", icon: <Crown className="h-4 w-4" />, subtitle: "Top-tier merchants: Trusted + 25 trades, 15 five-star ratings, $5,000 BTC traded.", emptyHint: "No Premium members yet. Reach the milestones from your Wallet page to unlock this tier." },
-    { key: "trusted", label: "Trusted & vouched", icon: <ShieldCheck className="h-4 w-4" />, subtitle: "Earn the Trusted badge: 5 successful trades, 5 different 4★+ raters, 3 trades with one partner, $500 BTC traded.", emptyHint: "No Trusted members yet — be the first to complete the journey." },
-    { key: "regular", label: "Regular members", icon: <Sparkles className="h-4 w-4" />, subtitle: "New & standard sellers and seekers." },
-  ];
+  useEffect(() => {
+    const ch = supabase
+      .channel("products-live")
+      .on("postgres_changes", { event: "*", schema: "public", table: "marketplace_products" },
+        () => qc.invalidateQueries({ queryKey: ["products"] }))
+      .subscribe();
+    return () => { supabase.removeChannel(ch); };
+  }, [qc]);
 
-  return (
-    <div className="space-y-10">
-      {/* Hero with mediator bot */}
-      <section className="surface relative overflow-hidden p-6 md:p-10">
-        <div className="absolute inset-0 -z-10 opacity-30" style={{ background: "radial-gradient(circle at 70% 20%, color-mix(in oklab, var(--primary) 35%, transparent), transparent 60%)" }} />
-        <div className="grid items-center gap-8 md:grid-cols-2">
-          <div className="space-y-4">
-            <Badge variant="outline" className="font-mono text-[11px]"><ArrowLeftRight className="mr-1 h-3 w-3" /> Mediated marketplace</Badge>
-            <h1 className="text-3xl font-semibold leading-tight md:text-4xl">
-              List what you <span className="text-primary">sell</span>. Find what you <span className="text-primary">seek</span>.
-            </h1>
-            <p className="text-sm text-muted-foreground md:text-base">
-              Our bot sits between buyer and seller — chat, agree, and trade safely.
-            </p>
-            <div className="flex flex-wrap gap-2">
-              <Button onClick={() => nav({ to: user ? "/post-listing" : "/auth" })} className="gap-2">
-                <Plus className="h-4 w-4" /> Post a listing
-              </Button>
-              <Link to="/order-book"><Button variant="outline">Escrow order book</Button></Link>
-            </div>
-          </div>
-          <MediatorBot />
-        </div>
-      </section>
+  const products = (data?.products ?? []) as Product[];
+  const featured = products.filter((p) => p.is_featured);
+  const regular = products.filter((p) => !p.is_featured);
+  const categories = Array.from(new Set(products.map((p) => p.category))).slice(0, 12);
 
-      {/* Search */}
-      <section className="surface p-4">
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="relative flex-1 min-w-[200px]">
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search listings by name…" className="pl-9" />
-          </div>
-          <Badge variant="secondary" className="font-mono">{data?.total ?? 0} active</Badge>
-          <Button size="sm" variant="ghost" onClick={() => refetch()} disabled={isFetching}>Refresh</Button>
-        </div>
-      </section>
-
-      {/* Tier sections */}
-      {tiers.map((t) => {
-        const group = data?.groups?.[t.key];
-        return (
-          <TierSection
-            key={t.key}
-            label={t.label}
-            subtitle={t.subtitle}
-            icon={t.icon}
-            emptyHint={t.emptyHint}
-            selling={group?.selling ?? []}
-            seeking={group?.seeking ?? []}
-            loading={isLoading}
-          />
-        );
-      })}
-    </div>
-  );
-}
-
-function TierSection({ label, subtitle, icon, emptyHint, selling, seeking, loading }: {
-  label: string; subtitle: string; icon: React.ReactNode; emptyHint?: string;
-  selling: ListingRow[]; seeking: ListingRow[]; loading?: boolean;
-}) {
-  const isEmpty = selling.length === 0 && seeking.length === 0;
-  return (
-    <motion.section
-      initial={{ opacity: 0, y: 10 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.5 }}
-      className="surface p-5"
-    >
-      <header className="mb-4 flex flex-wrap items-center justify-between gap-2">
-        <div className="flex items-center gap-2">
-          <div className="grid h-8 w-8 place-items-center rounded-md bg-primary/15 text-primary">{icon}</div>
-          <div>
-            <h2 className="text-lg font-semibold leading-tight">{label}</h2>
-            <p className="text-xs text-muted-foreground">{subtitle}</p>
-          </div>
-        </div>
-      </header>
-
-      <div className="grid gap-4 md:grid-cols-2">
-        <ListingTable title="Selling" tone="primary" rows={selling} loading={loading} emptyText="No active selling listings." />
-        <ListingTable title="Seeking" tone="accent" rows={seeking} loading={loading} emptyText="No active seeking listings." />
-      </div>
-
-      {isEmpty && emptyHint && !loading && (
-        <p className="mt-3 rounded-md border border-dashed border-border/60 bg-secondary/20 px-3 py-2 text-center text-[11px] text-muted-foreground">
-          {emptyHint}
-        </p>
-      )}
-    </motion.section>
-  );
-}
-
-
-function ListingTable({ title, tone, rows, loading, emptyText }: {
-  title: string; tone: "primary" | "accent"; rows: ListingRow[]; loading?: boolean; emptyText: string;
-}) {
-  const accent = tone === "primary" ? "text-primary" : "text-foreground";
-  return (
-    <div className="rounded-lg border border-border/60 bg-secondary/10">
-      <div className="flex items-center justify-between border-b border-border/60 px-3 py-2">
-        <h3 className={`text-sm font-semibold uppercase tracking-wider ${accent}`}>{title}</h3>
-        <span className="text-[10px] font-mono text-muted-foreground">{rows.length} listing{rows.length === 1 ? "" : "s"}</span>
-      </div>
-      <div className="max-h-[420px] divide-y divide-border/40 overflow-y-auto">
-        <AnimatePresence initial={false}>
-          {rows.map((r) => <ListingCard key={r.id} row={r} />)}
-        </AnimatePresence>
-        {!loading && rows.length === 0 && (
-          <p className="p-6 text-center text-xs text-muted-foreground">{emptyText}</p>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function ListingCard({ row }: { row: ListingRow }) {
-  const { user } = useAuth();
-  const nav = useNavigate();
-  const createGroup = useServerFn(createEscrowGroup);
-  const [busy, setBusy] = useState(false);
-  const tg = row.contact_telegram?.replace(/^@/, "");
-  const tgLink = tg ? `https://t.me/${tg}` : row.profile?.telegram_username ? `https://t.me/${row.profile.telegram_username.replace(/^@/, "")}` : null;
-  const web = row.contact_website
-    ? row.contact_website.startsWith("http") ? row.contact_website : `https://${row.contact_website}`
-    : null;
-  const rating = useMemo(() => {
-    if (!row.profile?.rating_count) return null;
-    return (row.profile.rating_sum / row.profile.rating_count).toFixed(1);
-  }, [row.profile]);
-
-  const startTrade = async () => {
+  const buy = async (p: Product) => {
     if (!user) return nav({ to: "/auth" });
-    // Selling listing → buyer auto-opens an escrow funded with USDT using the
-    // seller's saved payout address. Seeking listings still go through the
-    // wizard since the buyer here is the listing owner.
-    if (row.kind !== "selling") {
-      return nav({ to: "/escrow/new", search: { listing: row.id } });
-    }
-    setBusy(true);
+    setBusyId(p.id);
     try {
-      const fiat = row.amount != null ? Number(row.amount) : 0;
-      const res = await createGroup({ data: {
-        asset: "USDT",
-        amount: fiat > 0 ? fiat : 1,
-        fiat_amount: fiat > 0 ? fiat : undefined,
-        fiat_currency: row.currency || "USD",
-        listing_id: row.id,
-      } });
-      toast.success("Escrow group created");
-      nav({ to: "/escrow/$id", params: { id: res.id } });
+      const r = await buyFn({ data: { id: p.id } });
+      toast.success("Escrow group opened");
+      nav({ to: "/escrow/$id", params: { id: r.id } });
     } catch (e) {
       toast.error((e as Error).message);
     } finally {
-      setBusy(false);
+      setBusyId(null);
     }
   };
 
   return (
-    <motion.div
-      layout
-      initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
-      whileHover={{ backgroundColor: "color-mix(in oklab, var(--secondary) 30%, transparent)" }}
-      className="p-3"
+    <div className="space-y-6 md:space-y-8">
+      <section className="surface relative overflow-hidden p-5 sm:p-6 md:p-10">
+        <div className="absolute inset-0 -z-10 opacity-30" style={{ background: "radial-gradient(circle at 30% 30%, color-mix(in oklab, var(--primary) 35%, transparent), transparent 60%)" }} />
+        <div className="relative space-y-4">
+          <Badge variant="outline" className="font-mono text-[11px]"><ShoppingBag className="mr-1 h-3 w-3" /> Curated marketplace</Badge>
+          <h1 className="text-2xl font-semibold leading-tight sm:text-3xl md:text-4xl">
+            Shop verified products, <span className="text-primary">paid through escrow.</span>
+          </h1>
+          <p className="max-w-2xl text-sm text-muted-foreground md:text-base">
+            Every product in this marketplace is curated by the EscrowDesk team. Every purchase
+            opens an escrow group automatically — your funds aren't released until the order is delivered.
+          </p>
+        </div>
+      </section>
+
+      <AdBanner placement="marketplace_grid" variant="banner" className="block" />
+
+      {/* Filters */}
+      <section className="surface p-4">
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="relative flex-1 min-w-[180px]">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search products…" className="pl-9" />
+          </div>
+          <Badge variant="secondary" className="font-mono">{products.length} products</Badge>
+        </div>
+        {categories.length > 0 && (
+          <div className="mt-3 flex flex-wrap gap-1.5">
+            <button onClick={() => setCategory(null)} className={`rounded-full border px-3 py-1 text-[11px] transition-colors ${!category ? "border-primary bg-primary/15 text-primary" : "border-border/60 text-muted-foreground hover:text-foreground"}`}>All</button>
+            {categories.map((c) => (
+              <button key={c} onClick={() => setCategory(c)} className={`rounded-full border px-3 py-1 text-[11px] transition-colors ${category === c ? "border-primary bg-primary/15 text-primary" : "border-border/60 text-muted-foreground hover:text-foreground"}`}>{c}</button>
+            ))}
+          </div>
+        )}
+      </section>
+
+      {featured.length > 0 && (
+        <section>
+          <SectionHeader icon={<Sparkles className="h-4 w-4" />} title="Featured" />
+          <Grid products={featured} onBuy={buy} busyId={busyId} />
+        </section>
+      )}
+
+      <section>
+        <SectionHeader icon={<ShieldCheck className="h-4 w-4" />} title="All products" />
+        {isLoading ? (
+          <p className="surface p-10 text-center text-sm text-muted-foreground">Loading marketplace…</p>
+        ) : regular.length === 0 && featured.length === 0 ? (
+          <p className="surface p-10 text-center text-sm text-muted-foreground">
+            No products yet. Admins can add products from the Admin → Products panel.
+          </p>
+        ) : (
+          <Grid products={regular} onBuy={buy} busyId={busyId} />
+        )}
+      </section>
+    </div>
+  );
+}
+
+function SectionHeader({ icon, title }: { icon: React.ReactNode; title: string }) {
+  return (
+    <div className="mb-3 flex items-center gap-2">
+      <div className="grid h-7 w-7 place-items-center rounded-md bg-primary/15 text-primary">{icon}</div>
+      <h2 className="text-base font-semibold sm:text-lg">{title}</h2>
+    </div>
+  );
+}
+
+function Grid({ products, onBuy, busyId }: { products: Product[]; onBuy: (p: Product) => void; busyId: string | null }) {
+  return (
+    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+      {products.map((p) => <Card key={p.id} p={p} onBuy={onBuy} busy={busyId === p.id} />)}
+    </div>
+  );
+}
+
+function Card({ p, onBuy, busy }: { p: Product; onBuy: (p: Product) => void; busy: boolean }) {
+  return (
+    <motion.article
+      initial={{ opacity: 0, y: 8 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}
+      className="surface group flex flex-col overflow-hidden"
     >
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <div className="flex items-center gap-2">
-            <span className="truncate font-medium">{row.name}</span>
-            {row.profile?.is_premium && <Crown className="h-3.5 w-3.5 text-primary" />}
-            {row.profile?.is_trusted && <ShieldCheck className="h-3.5 w-3.5 text-primary" />}
+      <div className="relative aspect-video w-full overflow-hidden bg-secondary/40">
+        {p.image_url ? (
+          <img src={p.image_url} alt={p.name} className="h-full w-full object-cover transition-transform group-hover:scale-105" loading="lazy" />
+        ) : (
+          <div className="grid h-full w-full place-items-center text-muted-foreground">
+            <ShoppingBag className="h-8 w-8" />
           </div>
-          <p className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">{row.description}</p>
-          <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
-            <Badge variant="outline" className="text-[10px]">{row.category}</Badge>
-            {row.amount != null && (
-              <span className="font-mono text-xs text-primary">{fmtFiat(Number(row.amount), row.currency || "USD")}</span>
-            )}
-            <span className="text-[10px] text-muted-foreground">· {row.profile?.display_name ?? "—"}</span>
-            {rating && <span className="text-[10px] text-muted-foreground">· ★ {rating}</span>}
-          </div>
-        </div>
-        <div className="flex flex-col items-end gap-1">
-          <Button size="sm" onClick={startTrade} disabled={busy} className="h-7 gap-1 px-2 text-[11px]">
-            {busy ? <Loader2 className="h-3 w-3 animate-spin" /> : <Handshake className="h-3 w-3" />}
-            {row.kind === "selling" ? "Trade" : "Offer"}
-          </Button>
-          {tgLink && (
-            <a href={tgLink} target="_blank" rel="noreferrer">
-              <Button size="sm" variant="secondary" className="h-7 gap-1 px-2 text-[11px]"><Send className="h-3 w-3" /> Telegram</Button>
-            </a>
-          )}
-          {web && (
-            <a href={web} target="_blank" rel="noreferrer">
-              <Button size="sm" variant="outline" className="h-7 gap-1 px-2 text-[11px]"><Globe className="h-3 w-3" /> Website</Button>
-            </a>
-          )}
-        </div>
+        )}
+        {p.is_featured && (
+          <Badge className="absolute left-2 top-2 gap-1"><Star className="h-3 w-3" /> Featured</Badge>
+        )}
       </div>
-    </motion.div>
+      <div className="flex flex-1 flex-col p-3">
+        <div className="flex items-start justify-between gap-2">
+          <h3 className="line-clamp-2 text-sm font-semibold">{p.name}</h3>
+          <span className="whitespace-nowrap font-mono text-sm text-primary">{fmtFiat(Number(p.price), p.currency)}</span>
+        </div>
+        <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">{p.description}</p>
+        <div className="mt-2 flex flex-wrap items-center gap-1.5">
+          <Badge variant="outline" className="text-[10px]">{p.category}</Badge>
+          {p.stock >= 0 && p.stock < 10 && (
+            <Badge variant="secondary" className="text-[10px]">{p.stock} left</Badge>
+          )}
+        </div>
+        <Button size="sm" className="mt-3" onClick={() => onBuy(p)} disabled={busy}>
+          {busy ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : null}
+          Buy via escrow
+        </Button>
+      </div>
+    </motion.article>
   );
 }
