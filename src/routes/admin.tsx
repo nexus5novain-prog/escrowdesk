@@ -11,12 +11,17 @@ import {
   adminListUsers, adminBanUser, adminUnbanUser, adminWarnUser,
   adminAssignRole, adminRevokeRole, adminUnlinkTelegram, adminListWarnings,
 } from "@/lib/escrow.functions";
+import { adminListAds, adminCreateAd, adminUpdateAd, adminDeleteAd, type AdPlacement } from "@/lib/ads.functions";
+import { adminListProducts, adminCreateProduct, adminUpdateProduct, adminDeleteProduct } from "@/lib/products.functions";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/admin")({ component: () => (<AuthGate><Admin /></AuthGate>) });
@@ -41,12 +46,14 @@ function Admin() {
     <div className="space-y-6">
       <h1 className="text-2xl font-semibold">Admin</h1>
       <Tabs defaultValue="disputes">
-        <TabsList>
+        <TabsList className="flex flex-wrap h-auto">
           <TabsTrigger value="disputes">Disputes</TabsTrigger>
           <TabsTrigger value="offers">Offers</TabsTrigger>
           <TabsTrigger value="trades">Trades</TabsTrigger>
           <TabsTrigger value="users">Users</TabsTrigger>
           <TabsTrigger value="warnings">Warnings</TabsTrigger>
+          <TabsTrigger value="products">Products</TabsTrigger>
+          <TabsTrigger value="ads">Ads</TabsTrigger>
           <TabsTrigger value="telegram">Telegram</TabsTrigger>
           <TabsTrigger value="settings">Settings</TabsTrigger>
         </TabsList>
@@ -55,6 +62,8 @@ function Admin() {
         <TabsContent value="trades" className="mt-4"><TradesPanel /></TabsContent>
         <TabsContent value="users" className="mt-4"><UsersPanel /></TabsContent>
         <TabsContent value="warnings" className="mt-4"><WarningsPanel /></TabsContent>
+        <TabsContent value="products" className="mt-4"><ProductsPanel /></TabsContent>
+        <TabsContent value="ads" className="mt-4"><AdsPanel /></TabsContent>
         <TabsContent value="telegram" className="mt-4"><TelegramPanel /></TabsContent>
         <TabsContent value="settings" className="mt-4"><SettingsPanel /></TabsContent>
       </Tabs>
@@ -428,6 +437,333 @@ function WarningsPanel() {
           </div>
         ))}
         {warnings.length === 0 && <div className="text-sm text-muted-foreground">No warnings issued.</div>}
+      </div>
+    </div>
+  );
+}
+
+// ============================== ADS PANEL ==============================
+
+type AdRow = {
+  id: string;
+  title: string;
+  media_type: "image" | "video" | "html";
+  media_url: string | null;
+  html_content: string | null;
+  link_url: string | null;
+  placements: AdPlacement[];
+  is_active: boolean;
+  priority: number;
+  impressions: number;
+  clicks: number;
+  created_at: string;
+};
+
+const ALL_PLACEMENTS: { value: AdPlacement; label: string }[] = [
+  { value: "top", label: "Top banner (all pages)" },
+  { value: "marketplace_grid", label: "Marketplace grid" },
+  { value: "order_book_sidebar", label: "Order Book sidebar" },
+  { value: "trades_escrow", label: "Trades dashboard" },
+];
+
+function AdsPanel() {
+  const list = useServerFn(adminListAds);
+  const create = useServerFn(adminCreateAd);
+  const update = useServerFn(adminUpdateAd);
+  const del = useServerFn(adminDeleteAd);
+  const { data, refetch } = useQuery({ queryKey: ["admin-ads"], queryFn: () => list() });
+  const ads = ((data as { ads: AdRow[] } | undefined)?.ads ?? []);
+
+  useEffect(() => {
+    const ch = supabase.channel("admin-ads-live")
+      .on("postgres_changes", { event: "*", schema: "public", table: "ad_banners" }, () => refetch())
+      .subscribe();
+    return () => { supabase.removeChannel(ch); };
+  }, [refetch]);
+
+  const [form, setForm] = useState({
+    title: "", media_type: "image" as "image"|"video"|"html",
+    media_url: "", html_content: "", link_url: "", priority: 0,
+    placements: ["top"] as AdPlacement[], is_active: true,
+  });
+  const [busy, setBusy] = useState(false);
+
+  const togglePlacement = (p: AdPlacement) =>
+    setForm((f) => ({ ...f, placements: f.placements.includes(p) ? f.placements.filter((x) => x !== p) : [...f.placements, p] }));
+
+  const submit = async () => {
+    if (!form.title.trim()) return toast.error("Title required");
+    if (form.placements.length === 0) return toast.error("Pick at least one placement");
+    setBusy(true);
+    try {
+      await create({ data: {
+        title: form.title.trim(),
+        media_type: form.media_type,
+        media_url: form.media_url || undefined,
+        html_content: form.html_content || undefined,
+        link_url: form.link_url || undefined,
+        placements: form.placements,
+        priority: form.priority,
+        is_active: form.is_active,
+      } });
+      toast.success("Ad created");
+      setForm({ title: "", media_type: "image", media_url: "", html_content: "", link_url: "", priority: 0, placements: ["top"], is_active: true });
+      refetch();
+    } catch (e) { toast.error((e as Error).message); }
+    finally { setBusy(false); }
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="surface p-5">
+        <h2 className="font-semibold">Create ad banner</h2>
+        <div className="mt-3 grid gap-3 md:grid-cols-2">
+          <div>
+            <Label className="text-xs uppercase text-muted-foreground">Title</Label>
+            <Input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="Black Friday sale" />
+          </div>
+          <div>
+            <Label className="text-xs uppercase text-muted-foreground">Media type</Label>
+            <Select value={form.media_type} onValueChange={(v) => setForm({ ...form, media_type: v as "image"|"video"|"html" })}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="image">Image (URL)</SelectItem>
+                <SelectItem value="video">Video (URL)</SelectItem>
+                <SelectItem value="html">HTML embed</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          {form.media_type !== "html" && (
+            <div className="md:col-span-2">
+              <Label className="text-xs uppercase text-muted-foreground">{form.media_type === "image" ? "Image" : "Video"} URL</Label>
+              <Input value={form.media_url} onChange={(e) => setForm({ ...form, media_url: e.target.value })} placeholder="https://…" />
+            </div>
+          )}
+          {form.media_type === "html" && (
+            <div className="md:col-span-2">
+              <Label className="text-xs uppercase text-muted-foreground">HTML content</Label>
+              <Textarea rows={4} value={form.html_content} onChange={(e) => setForm({ ...form, html_content: e.target.value })} placeholder="<div>Your custom HTML…</div>" className="font-mono text-xs" />
+            </div>
+          )}
+          <div className="md:col-span-2">
+            <Label className="text-xs uppercase text-muted-foreground">Click-through URL (optional)</Label>
+            <Input value={form.link_url} onChange={(e) => setForm({ ...form, link_url: e.target.value })} placeholder="https://…" />
+          </div>
+          <div className="md:col-span-2">
+            <Label className="text-xs uppercase text-muted-foreground">Placements</Label>
+            <div className="mt-1.5 flex flex-wrap gap-1.5">
+              {ALL_PLACEMENTS.map((p) => (
+                <button key={p.value} type="button" onClick={() => togglePlacement(p.value)}
+                  className={`rounded-full border px-3 py-1 text-[11px] transition-colors ${form.placements.includes(p.value) ? "border-primary bg-primary/15 text-primary" : "border-border/60 text-muted-foreground hover:text-foreground"}`}>
+                  {p.label}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div>
+            <Label className="text-xs uppercase text-muted-foreground">Priority (0-100)</Label>
+            <Input type="number" min="0" max="100" value={form.priority} onChange={(e) => setForm({ ...form, priority: Number(e.target.value) })} />
+          </div>
+          <div className="flex items-center gap-2 pt-6">
+            <Switch checked={form.is_active} onCheckedChange={(v) => setForm({ ...form, is_active: v })} />
+            <span className="text-sm">Active</span>
+          </div>
+        </div>
+        <Button onClick={submit} disabled={busy} className="mt-4">{busy ? "Creating…" : "Create banner"}</Button>
+      </div>
+
+      <div className="surface p-5">
+        <h2 className="font-semibold">All banners ({ads.length})</h2>
+        <div className="mt-3 space-y-3">
+          {ads.map((a) => (
+            <div key={a.id} className="rounded-md border border-border/60 p-3">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className="font-medium">{a.title}</span>
+                    <Badge variant={a.is_active ? "default" : "secondary"}>{a.is_active ? "Active" : "Paused"}</Badge>
+                    <Badge variant="outline" className="uppercase">{a.media_type}</Badge>
+                    <span className="text-[11px] font-mono text-muted-foreground">P{a.priority}</span>
+                  </div>
+                  <div className="mt-1 flex flex-wrap gap-1">
+                    {a.placements.map((p) => <Badge key={p} variant="outline" className="text-[10px]">{p}</Badge>)}
+                  </div>
+                  <div className="mt-1 text-[11px] text-muted-foreground font-mono">
+                    {a.impressions} impressions · {a.clicks} clicks · {new Date(a.created_at).toLocaleDateString()}
+                  </div>
+                  {a.media_url && <div className="mt-1 truncate text-[11px] text-muted-foreground font-mono">{a.media_url}</div>}
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <Switch checked={a.is_active} onCheckedChange={async (v) => { try { await update({ data: { id: a.id, is_active: v } }); toast.success("Updated"); refetch(); } catch (e) { toast.error((e as Error).message); } }} />
+                  <Button size="sm" variant="destructive" onClick={async () => { if (!window.confirm("Delete this banner?")) return; try { await del({ data: { id: a.id } }); toast.success("Deleted"); refetch(); } catch (e) { toast.error((e as Error).message); } }}>Delete</Button>
+                </div>
+              </div>
+            </div>
+          ))}
+          {ads.length === 0 && <p className="text-sm text-muted-foreground">No banners yet.</p>}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ============================ PRODUCTS PANEL ===========================
+
+type ProductRow = {
+  id: string;
+  name: string;
+  description: string;
+  category: string;
+  price: number;
+  currency: string;
+  image_url: string | null;
+  stock: number;
+  status: "active" | "inactive" | "sold_out";
+  is_featured: boolean;
+  seller_wallet_address: string | null;
+  seller_wallet_asset: string | null;
+  created_at: string;
+};
+
+function ProductsPanel() {
+  const list = useServerFn(adminListProducts);
+  const create = useServerFn(adminCreateProduct);
+  const update = useServerFn(adminUpdateProduct);
+  const del = useServerFn(adminDeleteProduct);
+  const { data, refetch } = useQuery({ queryKey: ["admin-products"], queryFn: () => list() });
+  const products = ((data as { products: ProductRow[] } | undefined)?.products ?? []);
+
+  useEffect(() => {
+    const ch = supabase.channel("admin-products-live")
+      .on("postgres_changes", { event: "*", schema: "public", table: "marketplace_products" }, () => refetch())
+      .subscribe();
+    return () => { supabase.removeChannel(ch); };
+  }, [refetch]);
+
+  const [form, setForm] = useState({
+    name: "", description: "", category: "", price: "", currency: "USD",
+    image_url: "", stock: "-1", seller_wallet_address: "", seller_wallet_asset: "USDT",
+    is_featured: false,
+  });
+  const [busy, setBusy] = useState(false);
+
+  const submit = async () => {
+    if (!form.name.trim() || !form.description.trim()) return toast.error("Name and description required");
+    const price = Number(form.price);
+    if (!price || price <= 0) return toast.error("Valid price required");
+    setBusy(true);
+    try {
+      await create({ data: {
+        name: form.name.trim(),
+        description: form.description.trim(),
+        category: form.category.trim() || "Other",
+        price,
+        currency: form.currency.toUpperCase(),
+        image_url: form.image_url || undefined,
+        stock: Number(form.stock) || -1,
+        seller_wallet_address: form.seller_wallet_address || undefined,
+        seller_wallet_asset: form.seller_wallet_asset as "BTC"|"USDT"|"USDC"|"ETH",
+        is_featured: form.is_featured,
+      } });
+      toast.success("Product added");
+      setForm({ name: "", description: "", category: "", price: "", currency: "USD", image_url: "", stock: "-1", seller_wallet_address: "", seller_wallet_asset: "USDT", is_featured: false });
+      refetch();
+    } catch (e) { toast.error((e as Error).message); }
+    finally { setBusy(false); }
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="surface p-5">
+        <h2 className="font-semibold">Add marketplace product</h2>
+        <div className="mt-3 grid gap-3 md:grid-cols-2">
+          <div className="md:col-span-2">
+            <Label className="text-xs uppercase text-muted-foreground">Product name</Label>
+            <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="e.g. iPhone 15 Pro" />
+          </div>
+          <div className="md:col-span-2">
+            <Label className="text-xs uppercase text-muted-foreground">Description</Label>
+            <Textarea rows={3} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
+          </div>
+          <div>
+            <Label className="text-xs uppercase text-muted-foreground">Category</Label>
+            <Input value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} placeholder="Electronics" />
+          </div>
+          <div>
+            <Label className="text-xs uppercase text-muted-foreground">Image URL</Label>
+            <Input value={form.image_url} onChange={(e) => setForm({ ...form, image_url: e.target.value })} placeholder="https://…" />
+          </div>
+          <div>
+            <Label className="text-xs uppercase text-muted-foreground">Price</Label>
+            <Input type="number" min="0" step="0.01" value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} />
+          </div>
+          <div>
+            <Label className="text-xs uppercase text-muted-foreground">Currency</Label>
+            <Input value={form.currency} onChange={(e) => setForm({ ...form, currency: e.target.value.toUpperCase() })} maxLength={8} />
+          </div>
+          <div>
+            <Label className="text-xs uppercase text-muted-foreground">Stock (-1 = unlimited)</Label>
+            <Input type="number" value={form.stock} onChange={(e) => setForm({ ...form, stock: e.target.value })} />
+          </div>
+          <div>
+            <Label className="text-xs uppercase text-muted-foreground">Payout asset</Label>
+            <Select value={form.seller_wallet_asset} onValueChange={(v) => setForm({ ...form, seller_wallet_asset: v })}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="USDT">USDT</SelectItem>
+                <SelectItem value="USDC">USDC</SelectItem>
+                <SelectItem value="BTC">BTC</SelectItem>
+                <SelectItem value="ETH">ETH</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="md:col-span-2">
+            <Label className="text-xs uppercase text-muted-foreground">Payout wallet address</Label>
+            <Input value={form.seller_wallet_address} onChange={(e) => setForm({ ...form, seller_wallet_address: e.target.value })} placeholder="Where the escrow should be funded" className="font-mono text-xs" />
+          </div>
+          <div className="flex items-center gap-2">
+            <Switch checked={form.is_featured} onCheckedChange={(v) => setForm({ ...form, is_featured: v })} />
+            <span className="text-sm">Featured product</span>
+          </div>
+        </div>
+        <Button onClick={submit} disabled={busy} className="mt-4">{busy ? "Adding…" : "Add product"}</Button>
+      </div>
+
+      <div className="surface p-5">
+        <h2 className="font-semibold">All products ({products.length})</h2>
+        <div className="mt-3 space-y-3">
+          {products.map((p) => (
+            <div key={p.id} className="rounded-md border border-border/60 p-3">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div className="flex min-w-0 gap-3">
+                  {p.image_url && <img src={p.image_url} alt={p.name} className="h-16 w-16 rounded-md object-cover" loading="lazy" />}
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium">{p.name}</span>
+                      {p.is_featured && <Badge>Featured</Badge>}
+                      <Badge variant={p.status === "active" ? "default" : "secondary"}>{p.status}</Badge>
+                    </div>
+                    <div className="text-[11px] text-muted-foreground">{p.category} · {p.price} {p.currency} · Stock: {p.stock === -1 ? "∞" : p.stock}</div>
+                    <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">{p.description}</p>
+                  </div>
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <Select value={p.status} onValueChange={async (v) => { try { await update({ data: { id: p.id, status: v as "active"|"inactive"|"sold_out" } }); toast.success("Updated"); refetch(); } catch (e) { toast.error((e as Error).message); } }}>
+                    <SelectTrigger className="h-8 w-32"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="active">Active</SelectItem>
+                      <SelectItem value="inactive">Inactive</SelectItem>
+                      <SelectItem value="sold_out">Sold out</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Button size="sm" variant="outline" onClick={async () => { try { await update({ data: { id: p.id, is_featured: !p.is_featured } }); toast.success("Updated"); refetch(); } catch (e) { toast.error((e as Error).message); } }}>{p.is_featured ? "Unfeature" : "Feature"}</Button>
+                  <Button size="sm" variant="destructive" onClick={async () => { if (!window.confirm("Delete this product?")) return; try { await del({ data: { id: p.id } }); toast.success("Deleted"); refetch(); } catch (e) { toast.error((e as Error).message); } }}>Delete</Button>
+                </div>
+              </div>
+            </div>
+          ))}
+          {products.length === 0 && <p className="text-sm text-muted-foreground">No products yet. Add one above.</p>}
+        </div>
       </div>
     </div>
   );

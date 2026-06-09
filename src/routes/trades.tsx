@@ -10,6 +10,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { supabase } from "@/integrations/supabase/client";
 import { Activity, CheckCircle2, XCircle, Clock, Handshake } from "lucide-react";
 import { motion } from "framer-motion";
+import { AdBanner } from "@/components/AdBanner";
 
 export const Route = createFileRoute("/trades")({
   head: () => ({ meta: [{ title: "Trades — EscrowDesk" }] }),
@@ -66,6 +67,8 @@ function Trades() {
         <h1 className="text-2xl font-semibold">Trades</h1>
         <Link to="/escrow/new"><Badge className="cursor-pointer gap-1"><Handshake className="h-3 w-3" /> New escrow</Badge></Link>
       </div>
+
+      <AdBanner placement="trades_escrow" variant="banner" />
 
       {/* Live stat cards */}
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">

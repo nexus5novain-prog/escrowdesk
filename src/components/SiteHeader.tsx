@@ -30,7 +30,7 @@ export function SiteHeader() {
   const isStaff = (rolesData?.roles ?? []).some((r) => r === "admin" || r === "moderator");
   return (
     <header className="sticky top-0 z-30 border-b border-border/60 bg-background/70 backdrop-blur-xl">
-      <div className="mx-auto flex h-14 max-w-7xl items-center justify-between px-4">
+      <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-2 px-3 py-2 sm:h-14 sm:flex-nowrap sm:px-4 sm:py-0">
         <Link to="/" className="flex items-center gap-2">
           <div className="grid h-8 w-8 place-items-center rounded-md bg-primary/15 text-primary">
             <ShieldCheck className="h-4 w-4" />
@@ -40,18 +40,18 @@ export function SiteHeader() {
             P2P · Telegram
           </span>
         </Link>
-        <nav className="flex items-center gap-1 text-sm">
-          <Link to="/" className="px-3 py-2 text-muted-foreground hover:text-foreground" activeProps={{ className: "px-3 py-2 text-foreground" }}>Home</Link>
-          <Link to="/marketplace" className="px-3 py-2 text-muted-foreground hover:text-foreground" activeProps={{ className: "px-3 py-2 text-foreground" }}>Marketplace</Link>
-          <Link to="/order-book" className="px-3 py-2 text-muted-foreground hover:text-foreground" activeProps={{ className: "px-3 py-2 text-foreground" }}>Order book</Link>
+        <nav className="-mx-1 flex w-full items-center gap-0.5 overflow-x-auto whitespace-nowrap text-sm sm:w-auto sm:gap-1 sm:overflow-visible">
+          <Link to="/" className="px-2 py-2 text-muted-foreground hover:text-foreground sm:px-3" activeProps={{ className: "px-2 py-2 text-foreground sm:px-3" }}>Home</Link>
+          <Link to="/marketplace" className="px-2 py-2 text-muted-foreground hover:text-foreground sm:px-3" activeProps={{ className: "px-2 py-2 text-foreground sm:px-3" }}>Marketplace</Link>
+          <Link to="/order-book" className="px-2 py-2 text-muted-foreground hover:text-foreground sm:px-3" activeProps={{ className: "px-2 py-2 text-foreground sm:px-3" }}>Order book</Link>
           {user && (
             <>
-              <Link to="/trades" className="px-3 py-2 text-muted-foreground hover:text-foreground" activeProps={{ className: "px-3 py-2 text-foreground" }}>Trades</Link>
-              <Link to="/escrow/new" className="px-3 py-2 text-muted-foreground hover:text-foreground" activeProps={{ className: "px-3 py-2 text-foreground" }}>Escrow</Link>
-              <Link to="/wallet" className="px-3 py-2 text-muted-foreground hover:text-foreground" activeProps={{ className: "px-3 py-2 text-foreground" }}>Wallet</Link>
-              <Link to="/settings" className="px-3 py-2 text-muted-foreground hover:text-foreground" activeProps={{ className: "px-3 py-2 text-foreground" }}>Settings</Link>
+              <Link to="/trades" className="px-2 py-2 text-muted-foreground hover:text-foreground sm:px-3" activeProps={{ className: "px-2 py-2 text-foreground sm:px-3" }}>Trades</Link>
+              <Link to="/escrow/new" className="px-2 py-2 text-muted-foreground hover:text-foreground sm:px-3" activeProps={{ className: "px-2 py-2 text-foreground sm:px-3" }}>Escrow</Link>
+              <Link to="/wallet" className="px-2 py-2 text-muted-foreground hover:text-foreground sm:px-3" activeProps={{ className: "px-2 py-2 text-foreground sm:px-3" }}>Wallet</Link>
+              <Link to="/settings" className="px-2 py-2 text-muted-foreground hover:text-foreground sm:px-3" activeProps={{ className: "px-2 py-2 text-foreground sm:px-3" }}>Settings</Link>
               {isStaff && (
-                <Link to="/admin" className="px-3 py-2 text-muted-foreground hover:text-foreground" activeProps={{ className: "px-3 py-2 text-foreground" }}>Admin</Link>
+                <Link to="/admin" className="px-2 py-2 text-muted-foreground hover:text-foreground sm:px-3" activeProps={{ className: "px-2 py-2 text-foreground sm:px-3" }}>Admin</Link>
               )}
             </>
           )}
