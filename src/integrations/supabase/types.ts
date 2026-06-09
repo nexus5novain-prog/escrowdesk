@@ -14,6 +14,54 @@ export type Database = {
   }
   public: {
     Tables: {
+      bins: {
+        Row: {
+          bank: string
+          bin: string
+          brand: string
+          card_level: string | null
+          card_type: string | null
+          country: string | null
+          country_code: string | null
+          created_at: string
+          created_by: string | null
+          currency: string | null
+          id: string
+          notes: string | null
+          updated_at: string
+        }
+        Insert: {
+          bank: string
+          bin: string
+          brand: string
+          card_level?: string | null
+          card_type?: string | null
+          country?: string | null
+          country_code?: string | null
+          created_at?: string
+          created_by?: string | null
+          currency?: string | null
+          id?: string
+          notes?: string | null
+          updated_at?: string
+        }
+        Update: {
+          bank?: string
+          bin?: string
+          brand?: string
+          card_level?: string | null
+          card_type?: string | null
+          country?: string | null
+          country_code?: string | null
+          created_at?: string
+          created_by?: string | null
+          currency?: string | null
+          id?: string
+          notes?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       disputes: {
         Row: {
           created_at: string
