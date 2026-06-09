@@ -14,6 +14,63 @@ export type Database = {
   }
   public: {
     Tables: {
+      ad_banners: {
+        Row: {
+          clicks: number
+          created_at: string
+          created_by: string
+          ends_at: string | null
+          html_content: string | null
+          id: string
+          impressions: number
+          is_active: boolean
+          link_url: string | null
+          media_type: string
+          media_url: string | null
+          placements: string[]
+          priority: number
+          starts_at: string | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          clicks?: number
+          created_at?: string
+          created_by: string
+          ends_at?: string | null
+          html_content?: string | null
+          id?: string
+          impressions?: number
+          is_active?: boolean
+          link_url?: string | null
+          media_type: string
+          media_url?: string | null
+          placements?: string[]
+          priority?: number
+          starts_at?: string | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          clicks?: number
+          created_at?: string
+          created_by?: string
+          ends_at?: string | null
+          html_content?: string | null
+          id?: string
+          impressions?: number
+          is_active?: boolean
+          link_url?: string | null
+          media_type?: string
+          media_url?: string | null
+          placements?: string[]
+          priority?: number
+          starts_at?: string | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       bins: {
         Row: {
           bank: string
@@ -296,6 +353,60 @@ export type Database = {
           status?: Database["public"]["Enums"]["listing_status"]
           updated_at?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      marketplace_products: {
+        Row: {
+          category: string
+          created_at: string
+          created_by: string
+          currency: string
+          description: string
+          id: string
+          image_url: string | null
+          is_featured: boolean
+          name: string
+          price: number
+          seller_wallet_address: string | null
+          seller_wallet_asset: string | null
+          status: string
+          stock: number
+          updated_at: string
+        }
+        Insert: {
+          category: string
+          created_at?: string
+          created_by: string
+          currency?: string
+          description: string
+          id?: string
+          image_url?: string | null
+          is_featured?: boolean
+          name: string
+          price: number
+          seller_wallet_address?: string | null
+          seller_wallet_asset?: string | null
+          status?: string
+          stock?: number
+          updated_at?: string
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          created_by?: string
+          currency?: string
+          description?: string
+          id?: string
+          image_url?: string | null
+          is_featured?: boolean
+          name?: string
+          price?: number
+          seller_wallet_address?: string | null
+          seller_wallet_asset?: string | null
+          status?: string
+          stock?: number
+          updated_at?: string
         }
         Relationships: []
       }
