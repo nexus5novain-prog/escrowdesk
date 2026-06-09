@@ -7,6 +7,7 @@ import appCss from "../styles.css?url";
 import { AuthProvider } from "@/hooks/use-auth";
 import { Toaster } from "@/components/ui/sonner";
 import { SiteHeader } from "@/components/SiteHeader";
+import { AdBanner } from "@/components/AdBanner";
 
 function NotFoundComponent() {
   return (
@@ -72,6 +73,7 @@ function RootComponent() {
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
         <SiteHeader />
+        <AdBanner placement="top" dismissable className="mx-auto max-w-7xl px-4 pt-3" />
         <main className="mx-auto max-w-7xl px-4 py-8">
           <Outlet />
         </main>
